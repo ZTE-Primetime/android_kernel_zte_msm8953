@@ -125,7 +125,6 @@ static int pwm_device_request(struct pwm_device *pwm, const char *label)
 		}
 	}
 
-	set_bit(PWMF_REQUESTED, &pwm->flags);
 	pwm->label = label;
 
 	return 0;
@@ -285,7 +284,7 @@ EXPORT_SYMBOL_GPL(pwmchip_add);
  * pwmchip_remove() - remove a PWM chip
  * @chip: the PWM chip to remove
  *
- * Removes a PWM chip. This function may return busy if the PWM chip provides
+ * Removes a PWM chip.This function may return busy if the PWM chip provides
  * a PWM device that is still requested.
  */
 int pwmchip_remove(struct pwm_chip *chip)

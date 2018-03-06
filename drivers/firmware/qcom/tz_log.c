@@ -284,7 +284,7 @@ static uint32_t debug_rw_buf_size;
 /*
  * Debugfs data structure and functions
  */
-
+#if !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM) || defined(ZTE_FEATURE_TF_DEBUG) || defined(ZTE_FEATURE_TF_PARTIAL)
 static int _disp_tz_general_stats(void)
 {
 	int len = 0;
@@ -793,6 +793,7 @@ const struct file_operations tzdbg_fops = {
 	.read    = tzdbgfs_read,
 	.open    = tzdbgfs_open,
 };
+#endif
 
 static struct ion_client  *g_ion_clnt;
 static struct ion_handle *g_ihandle;
@@ -883,6 +884,7 @@ err1:
 	g_ion_clnt = NULL;
 }
 
+#if !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM) || defined(ZTE_FEATURE_TF_DEBUG) || defined(ZTE_FEATURE_TF_PARTIAL)
 static int  tzdbgfs_init(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -922,6 +924,7 @@ err:
 
 	return rc;
 }
+#endif
 
 static void tzdbgfs_exit(struct platform_device *pdev)
 {
@@ -1065,15 +1068,17 @@ static int tz_log_probe(struct platform_device *pdev)
 	}
 
 	tzdbg.diag_buf = (struct tzdbg_t *)ptr;
-
+#if !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM) || defined(ZTE_FEATURE_TF_DEBUG) || defined(ZTE_FEATURE_TF_PARTIAL)
 	if (tzdbgfs_init(pdev))
 		goto err;
-
+#endif
 	tzdbg_register_qsee_log_buf();
 	return 0;
+#if !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM) || defined(ZTE_FEATURE_TF_DEBUG) || defined(ZTE_FEATURE_TF_PARTIAL)
 err:
 	kfree(tzdbg.diag_buf);
 	return -ENXIO;
+#endif
 }
 
 

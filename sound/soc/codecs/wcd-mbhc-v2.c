@@ -30,6 +30,14 @@
 #include "wcd-mbhc-v2.h"
 #include "wcdcal-hwdep.h"
 
+/*
+ * headset detect /proc/hs
+ */
+#include <linux/time.h>
+#include <asm/uaccess.h>
+#include <linux/proc_fs.h>
+
+static int hs_type;
 #define WCD_MBHC_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
 			   SND_JACK_MECHANICAL | SND_JACK_MICROPHONE2 | \
@@ -70,6 +78,12 @@ enum wcd_mbhc_cs_mb_en_flag {
 static void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 				struct snd_soc_jack *jack, int status, int mask)
 {
+	/* ZTE_Audio_CJ,add log when press button or plug in headset*/
+	if (jack == &mbhc->headset_jack) {
+		pr_info("chenjun:%s:headset_jack status(%#X)\n", __func__, status);
+	} else if (jack == &mbhc->button_jack) {
+		pr_info("chenjun:%s:button_jack status(%#X)\n", __func__, status);
+	}
 	snd_soc_jack_report(jack, status, mask);
 }
 
@@ -674,7 +688,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->current_plug = MBHC_PLUG_TYPE_HEADSET;
 			mbhc->jiffies_atreport = jiffies;
 		} else if (jack_type == SND_JACK_LINEOUT) {
-			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
+			mbhc->current_plug = MBHC_PLUG_TYPE_HEADSET;
+			jack_type = SND_JACK_HEADSET;
+			pr_info("%s: SND_JACK_LINEOUT Change to HEADSET\n", __func__);
 		} else if (jack_type == SND_JACK_ANC_HEADPHONE)
 			mbhc->current_plug = MBHC_PLUG_TYPE_ANC_HEADPHONE;
 
@@ -692,8 +708,6 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				(mbhc->zr > mbhc->mbhc_cfg->linein_th &&
 				 mbhc->zr < MAX_IMPED) &&
 				(jack_type == SND_JACK_HEADPHONE)) {
-				jack_type = SND_JACK_LINEOUT;
-				mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
 				if (mbhc->hph_status) {
 					mbhc->hph_status &= ~(SND_JACK_HEADSET |
 							SND_JACK_LINEOUT |
@@ -717,6 +731,8 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				    WCD_MBHC_JACK_MASK);
 		wcd_mbhc_clr_and_turnon_hph_padac(mbhc);
 	}
+
+	hs_type = mbhc->current_plug;
 	pr_debug("%s: leave hph_status %x\n", __func__, mbhc->hph_status);
 }
 
@@ -1344,8 +1360,13 @@ correct_plug_type:
 		WCD_MBHC_REG_READ(WCD_MBHC_MIC_SCHMT_RESULT, mic_sch);
 		if (hs_comp_res && !(hphl_sch || mic_sch)) {
 			pr_debug("%s: cable is extension cable\n", __func__);
-			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
+			if (wcd_is_special_headset(mbhc)) {
+				pr_info("%s:get special headset,plug_type = %d\n",
+					__func__, plug_type);
+			}
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
 			wrk_complete = true;
+			goto report;
 		} else {
 			pr_debug("%s: cable might be headset: %d\n", __func__,
 					plug_type);
@@ -2347,6 +2368,26 @@ void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 EXPORT_SYMBOL(wcd_mbhc_stop);
 
 /*
+ * headset detect /proc/hs
+ */
+static ssize_t hs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
+{
+	int ret = 0;
+	char buffer[32] = {0};
+
+	ret = scnprintf(buffer, 32, "%d\n", hs_type);
+
+	ret = simple_read_from_buffer(buf, count, pos, buffer, ret);
+
+	return ret;
+}
+
+static const struct file_operations hs_detect_ops = {
+	.owner    = THIS_MODULE,
+	.read     = hs_read,
+};
+
+/*
  * wcd_mbhc_init : initialize MBHC internal structures.
  *
  * NOTE: mbhc->mbhc_cfg is not YET configure so shouldn't be used
@@ -2361,6 +2402,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	int hph_swh = 0;
 	int gnd_swh = 0;
 	struct snd_soc_card *card = codec->component.card;
+	struct proc_dir_entry *proc_hs_type = NULL;
 	const char *hph_switch = "qcom,msm-mbhc-hphl-swh";
 	const char *gnd_switch = "qcom,msm-mbhc-gnd-swh";
 
@@ -2540,6 +2582,12 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		goto err_hphr_ocp_irq;
 	}
 
+	proc_hs_type = proc_create("hs", S_IRUGO, NULL, &hs_detect_ops);
+	if (!proc_hs_type)
+		pr_err("%s: hs register failed\n", __func__);
+	else
+		pr_info("%s: hs register success\n", __func__);
+
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
 
@@ -2582,6 +2630,7 @@ void wcd_mbhc_deinit(struct wcd_mbhc *mbhc)
 	mbhc->mbhc_cb->free_irq(codec, mbhc->intr_ids->hph_right_ocp, mbhc);
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->register_notifier)
 		mbhc->mbhc_cb->register_notifier(codec, &mbhc->nblock, false);
+	remove_proc_entry("hs", NULL);
 	mutex_destroy(&mbhc->codec_resource_lock);
 }
 EXPORT_SYMBOL(wcd_mbhc_deinit);

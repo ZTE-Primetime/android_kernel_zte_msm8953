@@ -18,18 +18,25 @@
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
 
+/*
+ * by ZTE_YCM_20140710 yi.changming 400008
+ */
+#include "zte_camera_sensor_util.h"
+#include <linux/debugfs.h>
+
+/*chengjia add for camera sensor diff eeprom module 2017/5/5*/
+#include "zte_camera_sensor_diff.h"
+
 /* Logging macro */
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define SENSOR_MAX_MOUNTANGLE (360)
-
 static struct v4l2_file_operations msm_sensor_v4l2_subdev_fops;
 static int32_t msm_sensor_driver_platform_probe(struct platform_device *pdev);
 
 /* Static declaration */
 static struct msm_sensor_ctrl_t *g_sctrl[MAX_CAMERAS];
-
 static int msm_sensor_platform_remove(struct platform_device *pdev)
 {
 	struct msm_sensor_ctrl_t  *s_ctrl;
@@ -50,7 +57,6 @@ static int msm_sensor_platform_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
 
 static const struct of_device_id msm_sensor_driver_dt_match[] = {
 	{.compatible = "qcom,camera"},
@@ -154,6 +160,49 @@ static int32_t msm_sensor_driver_create_v4l_subdev
 	return rc;
 }
 
+/*
+ * by ZTE_YCM_20140728 yi.changming 400015
+ */
+/*zte hujian add start*/
+static int32_t msm_get_info_from_eeprom(struct msm_sensor_ctrl_t *s_ctrl,
+	struct device_node *eeprom_node)
+{
+	struct platform_device *eeprom_device = NULL;
+	struct v4l2_subdev *sd = NULL;
+	struct msm_eeprom_ctrl_t *e_ctrl = NULL;
+
+	if (!eeprom_node) {
+		pr_err("%s: can't find eeprom sensor phandle\n",
+		 __func__);
+		return -EFAULT;
+	}
+
+	eeprom_device = of_find_device_by_node(eeprom_node);
+	if (!eeprom_device) {
+		pr_err("%s:%d: can't find the device by node\n",
+		 __func__, __LINE__);
+		return -EFAULT;
+	}
+
+	sd = platform_get_drvdata(eeprom_device);
+	if (!sd) {
+		pr_err("%s:%d: can't find the eeprom sd\n" ,
+		 __func__, __LINE__);
+		return -EFAULT;
+	}
+
+	e_ctrl = v4l2_get_subdevdata(sd);
+
+	if (!e_ctrl) {
+		pr_err("%s:%d: can't find the eeprom sd\n" ,
+		 __func__, __LINE__);
+		return -EFAULT;
+	}
+
+	return 0;
+
+}
+/*zte hujian add end*/
 static int32_t msm_sensor_fill_eeprom_subdevid_by_name(
 				struct msm_sensor_ctrl_t *s_ctrl)
 {
@@ -178,7 +227,7 @@ static int32_t msm_sensor_fill_eeprom_subdevid_by_name(
 	eeprom_subdev_id = &sensor_info->subdev_id[SUB_MODULE_EEPROM];
 	/*
 	 * string for eeprom name is valid, set sudev id to -1
-	 *  and try to found new id
+	 * and try to found new id
 	 */
 	*eeprom_subdev_id = -1;
 
@@ -224,6 +273,13 @@ static int32_t msm_sensor_fill_eeprom_subdevid_by_name(
 				return -EINVAL;
 			continue;
 		}
+
+		/*
+		* by ZTE_YCM_20140728 yi.changming 400015
+		*/
+		/*zte hujian add start*/
+		msm_get_info_from_eeprom(s_ctrl , src_node);
+		/*zte hujian add end*/
 
 		*eeprom_subdev_id = val;
 		CDBG("%s:%d Eeprom subdevice id is %d\n",
@@ -725,7 +781,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 	}
 
 	/* Print slave info */
-	CDBG("camera id %d Slave addr 0x%X addr_type %d\n",
+	pr_err("camera id %d Slave addr 0x%X addr_type %d\n",
 		slave_info->camera_id, slave_info->slave_addr,
 		slave_info->addr_type);
 	CDBG("sensor_id_reg_addr 0x%X sensor_id 0x%X sensor id mask %d",
@@ -794,7 +850,6 @@ int32_t msm_sensor_driver_probe(void *setting,
 		pr_err("failed");
 		goto free_slave_info;
 	}
-
 
 	camera_info = kzalloc(sizeof(struct msm_camera_slave_info), GFP_KERNEL);
 	if (!camera_info)
@@ -893,13 +948,22 @@ CSID_TG:
 		pr_err("%s power up failed", slave_info->sensor_name);
 		goto free_camera_info;
 	}
-
+/*chengjia add for camera sensor diff eeprom module 2017/5/5*/
+	rc = zte_camera_sensor_check_eeprom_module(slave_info,
+		s_ctrl->sensor_i2c_client);
+	if (rc < 0) {
+		pr_err("%s check eeprom module failed", slave_info->sensor_name);
+		goto camera_power_down;
+	}
+/*chengjia add end*/
 	pr_err("%s probe succeeded", slave_info->sensor_name);
-
+	if (s_ctrl->zte_insensor_otp == 1) {
+		s_ctrl->func_tbl->zte_read_otp(s_ctrl);
+	}
 	/*
-	  Set probe succeeded flag to 1 so that no other camera shall
-	 * probed on this slot
-	 */
+	* Set probe succeeded flag to 1 so that no other camera shall
+	* probed on this slot
+	*/
 	s_ctrl->is_probe_succeed = 1;
 
 	/*
@@ -954,6 +1018,13 @@ CSID_TG:
 
 	msm_sensor_fill_sensor_info(s_ctrl, probed_info, entity_name);
 
+	/*
+	* by ZTE_YCM_20140710 yi.changming 400008
+	*/
+	if (msm_sensor_enable_debugfs(s_ctrl))
+		CDBG("%s:%d creat debugfs fail\n", __func__, __LINE__);
+
+	msm_sensor_register_sysdev(s_ctrl);
 	return rc;
 
 camera_power_down:
@@ -967,9 +1038,9 @@ free_slave_info:
 
 static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	int32_t                              rc = 0;
+	int32_t rc = 0;
 	struct msm_camera_sensor_board_info *sensordata = NULL;
-	struct device_node                  *of_node = s_ctrl->of_node;
+	struct device_node *of_node = s_ctrl->of_node;
 	uint32_t cell_id;
 
 	s_ctrl->sensordata = kzalloc(sizeof(*sensordata), GFP_KERNEL);
@@ -990,6 +1061,15 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 		goto FREE_SENSOR_DATA;
 	}
 	s_ctrl->id = cell_id;
+	/*
+	*judge is insensor_otp
+	*/
+	rc = of_property_read_u32(of_node, "zte,in_sensor_otp", &cell_id);
+	if (rc < 0) {
+		pr_err("failed: in_sensor_otp rc %d", rc);
+		s_ctrl->zte_insensor_otp = 0;
+	}
+	s_ctrl->zte_insensor_otp = cell_id;
 
 	/* Validate cell_id */
 	if (cell_id >= MAX_CAMERAS) {
@@ -1006,7 +1086,8 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	/* Read subdev info */
-	rc = msm_sensor_get_sub_module_index(of_node, &sensordata->sensor_info);
+	rc = msm_sensor_get_sub_module_index(of_node,
+		&sensordata->sensor_info);
 	if (rc < 0) {
 		pr_err("failed");
 		goto FREE_SENSOR_DATA;
@@ -1086,11 +1167,10 @@ FREE_SENSOR_DATA:
 
 static int32_t msm_sensor_driver_parse(struct msm_sensor_ctrl_t *s_ctrl)
 {
-	int32_t                   rc = 0;
+	int32_t rc = 0;
 
 	CDBG("Enter");
 	/* Validate input parameters */
-
 
 	/* Allocate memory for sensor_i2c_client */
 	s_ctrl->sensor_i2c_client = kzalloc(sizeof(*s_ctrl->sensor_i2c_client),
@@ -1290,6 +1370,12 @@ static int __init msm_sensor_driver_init(void)
 	int32_t rc = 0;
 
 	CDBG("%s Enter\n", __func__);
+
+	/*
+	* by ZTE_YCM_20140909 yi.changming 400006
+	*/
+	msm_sensor_creat_debugfs();
+
 	rc = platform_driver_register(&msm_sensor_platform_driver);
 	if (rc)
 		pr_err("%s platform_driver_register failed rc = %d",

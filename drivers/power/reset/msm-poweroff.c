@@ -25,6 +25,8 @@
 #include <linux/delay.h>
 #include <linux/qpnp/power-on.h>
 #include <linux/of_address.h>
+/* Use Qualcomm's usb vid and pid if enters download due to panic. */
+#include <linux/qcom/diag_dload.h>
 
 #include <asm/cacheflush.h>
 #include <asm/system_misc.h>
@@ -61,21 +63,26 @@ static void scm_disable_sdi(void);
 * So the SDI cannot be re-enabled when it already by-passed.
 */
 static int download_mode = 1;
+static int in_panic;
 #else
 static const int download_mode;
 #endif
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#if defined(CONFIG_MSM_DLOAD_MODE) && !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
 #define EDL_MODE_PROP "qcom,msm-imem-emergency_download_mode"
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
+#define SDDUMP_MODE_PROP "qcom,msm-imem-sd_dump_mode"
 
-static int in_panic;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
 static struct kobject dload_kobj;
 static void *dload_type_addr;
+
+static void *sd_dump_mode_addr;
+static int ignore_sd_dump = 0;
+
 
 static int dload_set(const char *val, struct kernel_param *kp);
 /* interface for exporting attributes */
@@ -95,10 +102,49 @@ struct reset_attribute {
 module_param_call(download_mode, dload_set, param_get_int,
 			&download_mode, 0644);
 
+static int dload_ignore_sd_dump_set(const char *val, struct kernel_param *kp);
+module_param_call(ignore_sd_dump, dload_ignore_sd_dump_set, param_get_int,
+			&ignore_sd_dump, 0644);
+
+static int dload_ignore_sd_dump_set(const char *val, struct kernel_param *kp)
+{
+	int ret;
+	int old_val = ignore_sd_dump;
+
+	pr_err("dload_ignore_sd_dump_set old ignore_sd_dump %d\n",
+		ignore_sd_dump);
+
+	ret = param_set_int(val, kp);
+	pr_err("dload_ignore_sd_dump_set new ignore_sd_dump %d\n",
+		ignore_sd_dump);
+
+	if (ret)
+		return ret;
+
+	/* If ignor_sd_dump is not zero or one, ignore. */
+	if (ignore_sd_dump > 1) {
+		ignore_sd_dump = old_val;
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+void msm_ignore_sd_dump(int enable)
+{
+	ignore_sd_dump = !!enable;
+}
+
+
+EXPORT_SYMBOL(msm_ignore_sd_dump);
+
+
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
 	in_panic = 1;
+	/* Use Qualcomm's usb vid and pid if enters download due to panic. */
+	use_qualcomm_usb_product_id();
 	return NOTIFY_DONE;
 }
 
@@ -140,11 +186,18 @@ static void set_dload_mode(int on)
 		mb();
 	}
 
+	if (sd_dump_mode_addr) {
+		__raw_writel((on && !ignore_sd_dump) ? 0x20121221 : 0, sd_dump_mode_addr);
+		mb();
+	}
+
 	ret = scm_set_dload_mode(on ? SCM_DLOAD_MODE : 0, 0);
 	if (ret)
 		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
 
 	dload_mode_enabled = on;
+	/* zte add kernel log below */
+	pr_notice("zte_restart set_dload_mode %d, param=%d\n", dload_mode_enabled, on);
 }
 
 static bool get_dload_mode(void)
@@ -208,6 +261,13 @@ static void enable_emergency_dload_mode(void)
 	pr_err("dload mode is not enabled on target\n");
 }
 
+void msm_ignore_sd_dump(int enable)
+{
+	pr_err("msm_ignore_sd_dump:not support\n");
+}
+EXPORT_SYMBOL(msm_ignore_sd_dump);
+
+
 static bool get_dload_mode(void)
 {
 	return false;
@@ -268,15 +328,23 @@ static void msm_restart_prepare(const char *cmd)
 {
 	bool need_warm_reset = false;
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#if defined(CONFIG_MSM_DLOAD_MODE) && !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
 
 	/* Write download mode flags if we're panic'ing
 	 * Write download mode flags if restart_mode says so
 	 * Kill download mode if master-kill switch is set
 	 */
-
+#if 0
 	set_dload_mode(download_mode &&
 			(in_panic || restart_mode == RESTART_DLOAD));
+#else
+	if (restart_mode == RESTART_DLOAD)
+		set_dload_mode(1);
+	else if (download_mode)
+		set_dload_mode(in_panic);
+	else
+		set_dload_mode(0);
+#endif
 #endif
 
 	if (qpnp_pon_check_hard_reset_stored()) {
@@ -292,6 +360,9 @@ static void msm_restart_prepare(const char *cmd)
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
+	/* zte add reset type print to assist reset issue's analysis */
+		pr_notice("zte_restart flag %d, %d, %d\n",
+			in_panic, download_mode, restart_mode);
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	} else {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
@@ -331,6 +402,23 @@ static void msm_restart_prepare(const char *cmd)
 					     restart_reason);
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
+#ifdef CONFIG_ZTE_BOOT_MODE
+		} else if (!strncmp(cmd, "ftmmode", 7)) {
+			__raw_writel(0x776655ee, restart_reason);
+#endif
+		} else if (!strncmp(cmd, "disemmcwp", 9)) {
+		/*Add interface to enable/disable emmc write protct function */
+			qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_DISEMMCWP);
+			__raw_writel(0x776655aa, restart_reason);
+		} else if (!strncmp(cmd, "emmcwpenab", 10)) {
+			qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_EMMCWPENAB);
+			__raw_writel(0x776655bb, restart_reason);
+#ifdef CONFIG_ZTE_PIL_AUTH_ERROR_DETECTION
+		} else if (!strncmp(cmd, "unauth", 6)) {
+			__raw_writel(0x776655cc, restart_reason);
+#endif
 		} else {
 			__raw_writel(0x77665501, restart_reason);
 		}
@@ -375,7 +463,7 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 
 	msm_restart_prepare(cmd);
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#if defined(CONFIG_MSM_DLOAD_MODE) && !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
 	/*
 	 * Trigger a watchdog bite here and if this fails,
 	 * device will take the usual restart path.
@@ -408,7 +496,7 @@ static void do_msm_poweroff(void)
 	return;
 }
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#if defined(CONFIG_MSM_DLOAD_MODE) && !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
 static ssize_t attr_show(struct kobject *kobj, struct attribute *attr,
 				char *buf)
 {
@@ -495,7 +583,7 @@ static int msm_restart_probe(struct platform_device *pdev)
 	struct device_node *np;
 	int ret = 0;
 
-#ifdef CONFIG_MSM_DLOAD_MODE
+#if defined(CONFIG_MSM_DLOAD_MODE) && !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
 	if (scm_is_call_available(SCM_SVC_BOOT, SCM_DLOAD_CMD) > 0)
 		scm_dload_supported = true;
 
@@ -516,6 +604,16 @@ static int msm_restart_probe(struct platform_device *pdev)
 		emergency_dload_mode_addr = of_iomap(np, 0);
 		if (!emergency_dload_mode_addr)
 			pr_err("unable to map imem EDLOAD mode offset\n");
+	}
+
+    //Add by ruijiagui, map sddump flag address
+	np = of_find_compatible_node(NULL, NULL, SDDUMP_MODE_PROP);
+	if (!np) {
+		pr_err("unable to find DT imem sd dump mode node\n");
+	} else {
+		sd_dump_mode_addr = of_iomap(np, 0);
+		if (!sd_dump_mode_addr)
+			pr_err("unable to map imem sddump mode offset\n");
 	}
 
 	np = of_find_compatible_node(NULL, NULL,
@@ -578,6 +676,15 @@ skip_sysfs_create:
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
 
+#if defined(ZTE_RESTART_FLAG_USER_BUILD) /*may defined in the local makefile*/
+	download_mode = 0; /* reinit differing with default */
+#elif defined(ZTE_RESTART_FLAG_USERDEBUG_BUILD) || defined(ZTE_RESTART_FLAG_ENG_BUILD)
+	/* nothing need to do, the default is already 1 */
+#else
+	/* zte_should_defined_the_build_var_micro error_and_unexpected,
+		maybe to raise a compiling error next step,
+		here just use the default value as userdebug or eng build */
+#endif
 	set_dload_mode(download_mode);
 	if (!download_mode)
 		scm_disable_sdi();
@@ -585,9 +692,10 @@ skip_sysfs_create:
 	return 0;
 
 err_restart_reason:
-#ifdef CONFIG_MSM_DLOAD_MODE
+#if defined(CONFIG_MSM_DLOAD_MODE) && !defined(ZTE_FEATURE_TF_SECURITY_SYSTEM)
 	iounmap(emergency_dload_mode_addr);
 	iounmap(dload_mode_addr);
+	iounmap(sd_dump_mode_addr);
 #endif
 	return ret;
 }

@@ -23,6 +23,14 @@
 #define PERICOM_I2C_NAME	"usb-type-c-pericom"
 #define PERICOM_I2C_DELAY_MS	30
 
+#define PERICOM_CCS_PP						0x03
+#define PERICOM_CCS_APS_SHIFT			2
+#define PERICOM_CCS_APS						(0x07 << PERICOM_CCS_APS_SHIFT)
+#define PERICOM_CCS_CCD_SHIFT			5
+#define PERICOM_CCS_CCD						(0x03 << PERICOM_CCS_CCD_SHIFT)
+#define PERICOM_CCS_VBUS_SHIFT			7
+#define PERICOM_CCS_VBUS					(0x01 << PERICOM_CCS_VBUS_SHIFT)
+
 #define CCD_DEFAULT		0x1
 #define CCD_MEDIUM		0x2
 #define CCD_HIGH		0x3
@@ -74,6 +82,7 @@ struct pi_usb_type_c {
 	bool				attach_state;
 	int				enb_gpio;
 	int				enb_gpio_polarity;
+	bool				id_notify;
 	struct regulator		*i2c_1p8;
 	struct dual_role_phy_instance	*dual_role;
 	struct dual_role_phy_desc	dr_desc;
@@ -103,6 +112,7 @@ static int piusb_read_regdata(struct i2c_client *i2c)
 	int data_length = sizeof(pi_usb->reg_data);
 	uint16_t saddr = i2c->addr;
 	u8 attach_state;
+	int otg_state = 0;
 	struct i2c_msg msgs[] = {
 		{
 			.addr  = saddr,
@@ -124,14 +134,80 @@ static int piusb_read_regdata(struct i2c_client *i2c)
 		    pi_usb->reg_data.dev_id, pi_usb->reg_data.control,
 		    pi_usb->reg_data.intr_status, pi_usb->reg_data.port_status);
 
-	if (!pi_usb->reg_data.intr_status) {
-		dev_err(&i2c->dev, "intr_status is 0!, ignore interrupt\n");
-		pi_usb->attach_state = false;
-		return -EINVAL;
+	if (pi_usb->reg_data.intr_status) {
+		attach_state = pi_usb->reg_data.intr_status & INTS_ATTACH_MASK;
+		pi_usb->attach_state = (attach_state == INTS_ATTACH) ? true : false;
+
+		if (pi_usb->reg_data.intr_status & INTS_ATTACH) {
+			dev_info(&i2c->dev, "Attach event\n");
+		} else if (pi_usb->reg_data.intr_status & INTS_DETACH) {
+			dev_info(&i2c->dev, "Detach event\n");
+			return 0;
+		}
+	} else if (pi_usb->attach_state) {
+		dev_err(&i2c->dev, "intr_status is 0!, CC status change\n");
+	} else
+		return 0;
+
+	dev_info(&i2c->dev, "Vbus%s detected\n", (pi_usb->reg_data.port_status & PERICOM_CCS_VBUS) ? "" : " not");
+
+	switch ((pi_usb->reg_data.port_status & PERICOM_CCS_APS) >> PERICOM_CCS_APS_SHIFT) {
+	case 0x00:
+		dev_info(&pi_usb->client->dev, "APS: Standby\n");
+		break;
+	case 0x01:
+		dev_info(&pi_usb->client->dev, "APS: Device\n");
+		otg_state = 1;
+		break;
+	case 0x02:
+		dev_info(&pi_usb->client->dev, "APS: Host\n");
+		break;
+	case 0x03:
+		dev_info(&pi_usb->client->dev, "APS: Audio Adapter Accessory\n");
+		otg_state = 1;
+		break;
+	case 0x04:
+		dev_info(&pi_usb->client->dev, "APS: Debug Accessory\n");
+		otg_state = 1;
+		break;
+	default:
+		dev_info(&pi_usb->client->dev, "APS: reservedn");
 	}
 
-	attach_state = pi_usb->reg_data.intr_status & INTS_ATTACH_MASK;
-	pi_usb->attach_state = (attach_state == INTS_ATTACH) ? true : false;
+	switch ((pi_usb->reg_data.port_status & PERICOM_CCS_CCD) >> PERICOM_CCS_CCD_SHIFT) {
+	case 0x00:
+		dev_info(&pi_usb->client->dev, "CCD: Standby\n");
+		break;
+	case 0x01:
+		dev_info(&pi_usb->client->dev, "CCD: Default current mode\n");
+		break;
+	case 0x02:
+		dev_info(&pi_usb->client->dev, "CCD: Medium current mode(1.5A)\n");
+		break;
+	case 0x03:
+		dev_info(&pi_usb->client->dev, "CCD: High current mode(3A)\n");
+		break;
+	}
+
+	switch (pi_usb->reg_data.port_status & PERICOM_CCS_PP) {
+	case 0x00:
+		dev_info(&pi_usb->client->dev, "PP: Standby\n");
+		break;
+	case 0x01:
+		dev_info(&pi_usb->client->dev, "PP: CC1 makes connection\n");
+		break;
+	case 0x02:
+		dev_info(&pi_usb->client->dev, "PP: CC2 makes connection\n");
+		break;
+	case 0x03:
+		dev_info(&pi_usb->client->dev, "PP: Undetermined\n");
+		break;
+	}
+
+	if (pi_usb->id_notify && pi_usb->usb_psy) {
+		dev_info(&pi_usb->client->dev, "setting usb psy OTG = %d\n", otg_state);
+		power_supply_set_usb_otg(pi_usb->usb_psy, !!otg_state);
+	}
 
 	return rc;
 }
@@ -448,6 +524,36 @@ static void piusb_handle_detach_work(struct work_struct *w)
 	mutex_unlock(&pi_usb->mutex);
 }
 
+static int piusb_get_revision(struct i2c_client *i2c)
+{
+	int rc;
+	u8 dev_id;
+	uint16_t saddr = i2c->addr;
+	struct i2c_msg msgs[] = {
+		{
+			.addr  = saddr,
+			.flags = I2C_M_RD,
+			.len   = 1,
+			.buf   = (u8 *)&dev_id,
+		}
+	};
+
+	rc = i2c_transfer(i2c->adapter, msgs, 1);
+	if (rc < 0) {
+		/* i2c read may fail if device not enabled or not present */
+		dev_err(&i2c->dev, "i2c read from 0x%x failed %d\n", saddr, rc);
+		return -ENXIO;
+	}
+
+	dev_info(&i2c->dev, "Pericom device id: [0x%02x]\n", dev_id);
+	if (dev_id != 0x20) { /* PI5USB30216[D] */
+		dev_info(&i2c->dev, "Pericom device id not match\n");
+		return -ENXIO;
+	}
+
+	return rc;
+}
+
 static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 {
 	int ret;
@@ -476,6 +582,7 @@ static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto out;
 	}
 
+	pi_usb->id_notify = of_property_read_bool(np, "id,notify");
 	/* override with module-param */
 	if (!disable_on_suspend)
 		disable_on_suspend = of_property_read_bool(np,
@@ -496,6 +603,10 @@ static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		dev_err(&pi_usb->client->dev, "i2c ldo init failed\n");
 		goto gpio_disable;
 	}
+
+	ret = piusb_get_revision(i2c);
+	if (ret < 0)
+		goto ldo_disable;
 
 	ret = piusb_i2c_enable(pi_usb, true, CTL_MODE_DRP);
 	if (ret) {

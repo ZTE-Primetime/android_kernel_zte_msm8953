@@ -38,6 +38,7 @@
 #include <linux/msm-bus.h>
 #include <linux/pm_runtime.h>
 #include <trace/events/mmc.h>
+#include <linux/proc_fs.h>
 
 #include "sdhci-msm.h"
 #include "sdhci-msm-ice.h"
@@ -219,6 +220,20 @@ static const u32 tuning_block_128[] = {
 
 /* global to hold each slot instance for debug */
 static struct sdhci_msm_host *sdhci_slot[2];
+
+void init_cd_gpios_flags_proc(struct mmc_host *host);
+int cd_gpios, cd_flags;
+extern int dts_gpio;
+static int emmc_version_5_0 = 0;
+static int __init
+emmc_version_fn(char *str)
+{
+	if (str[0] == '7') {
+		emmc_version_5_0 = 1;
+	}
+	return 1;
+}
+__setup("emmc.hynix.verison=", emmc_version_fn);
 
 static int disable_slots;
 /* root can write, others read */
@@ -1282,6 +1297,7 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 	char prop_name[MAX_PROP_SIZE];
 	struct sdhci_msm_reg_data *vreg;
 	struct device_node *np = dev->of_node;
+	struct sdhci_host *host = dev_get_drvdata(dev);
 
 	snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", vreg_name);
 	if (!of_parse_phandle(np, prop_name, 0)) {
@@ -1302,6 +1318,14 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 			"qcom,%s-always-on", vreg_name);
 	if (of_get_property(np, prop_name, NULL))
 		vreg->is_always_on = true;
+	/*
+	 * Set VCC always on if it is Hynix and V5.0
+	 * to fix the issue that if vcc is off, the write protect function will be invalid
+	 */
+	if (host->mmc->index == 0 && !strcmp(vreg->name,"vdd") && emmc_version_5_0) {
+		vreg->is_always_on = true;
+		pr_info("%s emmc_version_5_0 = %d \n", mmc_hostname(host->mmc), emmc_version_5_0);
+	}
 
 	snprintf(prop_name, MAX_PROP_SIZE,
 			"qcom,%s-lpm-sup", vreg_name);
@@ -1642,6 +1666,15 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	}
 
 	pdata->status_gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, &flags);
+#ifdef CONFIG_UFS
+	if (!strcmp(mmc_hostname(msm_host->mmc), "mmc0")) {
+#else
+	if (!strcmp(mmc_hostname(msm_host->mmc), "mmc1")) {
+#endif
+		cd_gpios = dts_gpio;
+		cd_flags = flags;
+		init_cd_gpios_flags_proc(msm_host->mmc);
+	}
 	if (gpio_is_valid(pdata->status_gpio) & !(flags & OF_GPIO_ACTIVE_LOW))
 		pdata->caps2 |= MMC_CAP2_CD_ACTIVE_HIGH;
 
@@ -1782,6 +1815,39 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	return pdata;
 out:
 	return NULL;
+}
+
+static int cd_gpios_flags_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m,
+		"cd_gpios: %d\n"
+		"cd_flags: %d\n",
+		cd_gpios,
+		cd_flags);
+	return 0;
+}
+
+static int cd_gpios_flags_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cd_gpios_flags_proc_show, NULL);
+}
+
+static const struct file_operations cd_gpios_flags_proc_fops = {
+	.open		= cd_gpios_flags_proc_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+void init_cd_gpios_flags_proc(struct mmc_host *host)
+{
+	struct proc_dir_entry *cd_gpios_flags;
+
+	cd_gpios_flags = proc_create("driver/cd_gpios_flags", S_IFREG | S_IRUGO, NULL, &cd_gpios_flags_proc_fops);
+	if (!cd_gpios_flags) {
+		pr_err("%s:Unable to create cd_gpios_flags\n", __func__);
+		return;
+	}
 }
 
 /* Returns required bandwidth in Bytes per Sec */
@@ -4378,6 +4444,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		       mmc_hostname(host->mmc), __func__, ret);
 		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
 	}
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	wake_lock_init(&msm_host->mmc->sd_detect_wake_lock, WAKE_LOCK_SUSPEND, mmc_hostname(msm_host->mmc));
+#endif
 	/* Successful initialization */
 	goto out;
 
@@ -4449,6 +4518,9 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 		sdhci_msm_bus_unregister(msm_host);
 	}
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	wake_lock_destroy(&msm_host->mmc->sd_detect_wake_lock);
+#endif
 	return 0;
 }
 

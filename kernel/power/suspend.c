@@ -371,6 +371,15 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 	return error;
 }
 
+/*ZTE ++++ */
+#ifndef RECORD_APP_AWAKE_SUSPEND_TIME_ZTE
+#define RECORD_APP_AWAKE_SUSPEND_TIME_ZTE
+#endif
+#ifdef RECORD_APP_AWAKE_SUSPEND_TIME_ZTE
+extern void record_sleep_awake_time(bool record_sleep_awake);
+#endif
+/*ZTE ---- */
+
 /**
  * suspend_devices_and_enter - Suspend devices and enter system sleep state.
  * @state: System sleep state to enter.
@@ -406,6 +415,14 @@ int suspend_devices_and_enter(suspend_state_t state)
  Resume_devices:
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
+
+/*ZTE ++++ */
+#ifdef RECORD_APP_AWAKE_SUSPEND_TIME_ZTE
+	pr_info("Resume DONE\n");
+	record_sleep_awake_time(false);
+#endif
+/*ZTE ---- */
+
 	suspend_test_finish("resume devices");
 	trace_suspend_resume(TPS("resume_console"), state, true);
 	resume_console();
@@ -441,6 +458,7 @@ static void suspend_finish(void)
  * Fail if that's not the case.  Otherwise, prepare for system suspend, make the
  * system enter the given sleep state and clean up after wakeup.
  */
+extern void suspend_sys_sync_queue(void);
 static int enter_state(suspend_state_t state)
 {
 	int error;
@@ -463,11 +481,7 @@ static int enter_state(suspend_state_t state)
 	if (state == PM_SUSPEND_FREEZE)
 		freeze_begin();
 
-	trace_suspend_resume(TPS("sync_filesystems"), 0, true);
-	printk(KERN_INFO "PM: Syncing filesystems ... ");
-	sys_sync();
-	printk("done.\n");
-	trace_suspend_resume(TPS("sync_filesystems"), 0, false);
+	suspend_sys_sync_queue();
 
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare(state);

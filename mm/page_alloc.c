@@ -853,6 +853,7 @@ bool is_cma_pageblock(struct page *page)
 {
 	return get_pageblock_migratetype(page) == MIGRATE_CMA;
 }
+EXPORT_SYMBOL(is_cma_pageblock);
 
 /* Free whole pageblock and set its migration type to MIGRATE_CMA. */
 void __init init_cma_reserved_pageblock(struct page *page)
@@ -1905,8 +1906,12 @@ static bool __zone_watermark_ok(struct zone *z, unsigned int order,
 		free_pages -= zone_page_state(z, NR_FREE_CMA_PAGES);
 #endif
 
-	if (free_pages <= min + z->lowmem_reserve[classzone_idx])
+	if (free_pages <= min + z->lowmem_reserve[classzone_idx]) {
+		trace_mm_page_alloc_failed(classzone_idx, order, mark,
+			alloc_flags, zone_page_state(z, NR_FREE_CMA_PAGES),
+			free_pages, z->lowmem_reserve[classzone_idx]);
 		return false;
+	}
 
 	for (o = 0; o < order; o++) {
 		/* At the next order, this order's pages become unavailable */
@@ -1923,8 +1928,13 @@ static bool __zone_watermark_ok(struct zone *z, unsigned int order,
 		/* Require fewer higher order pages to be free */
 		min >>= min_free_order_shift;
 
-		if (free_pages <= min)
+		if (free_pages <= min) {
+			trace_mm_page_alloc_failed(classzone_idx,
+				0xAAAA<<16 | o<<8 | order,
+				mark, alloc_flags,
+				z->free_area[o].nr_free, free_pages, min);
 			return false;
+		}
 	}
 	return true;
 }

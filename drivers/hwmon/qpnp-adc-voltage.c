@@ -1209,6 +1209,7 @@ int32_t qpnp_vadc_calib_vref(struct qpnp_vadc_chip *vadc,
 	struct qpnp_adc_amux_properties conv;
 	int rc, count = 0, calib_read = 0;
 	u8 status1 = 0;
+	conv.amux_channel = 1234; /*set a no existing channel initialize*/
 
 	if (calib_type == CALIB_ABSOLUTE)
 		conv.amux_channel = REF_125V;
@@ -1259,6 +1260,7 @@ int32_t qpnp_vadc_calib_gnd(struct qpnp_vadc_chip *vadc,
 	int rc, count = 0, calib_read = 0;
 	u8 status1 = 0;
 	uint32_t ref_channel_sel = 0;
+	conv.amux_channel = 1234; /*set a no existing channel initialize*/
 
 	if (calib_type == CALIB_ABSOLUTE) {
 		qpnp_vadc_625mv_channel_sel(vadc, &ref_channel_sel);

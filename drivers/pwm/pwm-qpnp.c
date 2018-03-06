@@ -6,7 +6,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
 /*
@@ -25,7 +25,6 @@
 #include <linux/of_device.h>
 #include <linux/radix-tree.h>
 #include <linux/qpnp/pwm.h>
-
 #define QPNP_LPG_DRIVER_NAME	"qcom,qpnp-pwm"
 #define QPNP_LPG_CHANNEL_BASE	"qpnp-lpg-channel-base"
 #define QPNP_LPG_LUT_BASE	"qpnp-lpg-lut-base"
@@ -34,7 +33,7 @@
 #define QPNP_LPG_CHAN_SUB_TYPE		0x2
 #define QPNP_LPG_S_CHAN_SUB_TYPE	0x11
 
-/* LPG Control for LPG_PATTERN_CONFIG */
+/* LPG Control for LPG_PATTERN_CONFIG  */
 #define QPNP_RAMP_DIRECTION_SHIFT	4
 #define QPNP_RAMP_DIRECTION_MASK	0x10
 #define QPNP_PATTERN_REPEAT_SHIFT	3

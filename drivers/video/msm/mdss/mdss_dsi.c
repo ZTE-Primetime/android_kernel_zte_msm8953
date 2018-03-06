@@ -292,8 +292,14 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 		ret = 0;
 	}
 
+#if defined(CONFIG_BOARD_PEONY)
+	msleep(300);
+#endif
+
 	if (mdss_dsi_pinctrl_set_state(ctrl_pdata, false))
 		pr_debug("reset disable: pinctrl not enabled\n");
+
+	mdss_dsi_panel_5v_power(pdata, 0);
 
 	ret = msm_dss_enable_vreg(
 		ctrl_pdata->panel_power_data.vreg_config,
@@ -306,9 +312,11 @@ end:
 	return ret;
 }
 
+int do_one_time_flag = 0;
 static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
+	int j;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (pdata == NULL) {
@@ -327,6 +335,21 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM));
 		return ret;
 	}
+
+	if (do_one_time_flag == 0) {
+		do_one_time_flag = 1;
+		for (j = 0; j < ctrl_pdata->panel_power_data.num_vreg; j++) {
+			if (strncmp(ctrl_pdata->panel_power_data.vreg_config[j].vreg_name, "vddio", 5) == 0) {
+				ret = msm_dss_enable_vreg(&(ctrl_pdata->panel_power_data.vreg_config[j]), 1, 1);
+				if (ret)
+					pr_err("LCD failed to enable vddio again!\n");
+				else
+					pr_info("LCD Enable vddio one more time!\n");
+			}
+		}
+	}
+
+	mdss_dsi_panel_5v_power(pdata, 1);
 
 	/*
 	 * If continuous splash screen feature is enabled, then we need to
@@ -1185,6 +1208,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
 			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
+	mdss_dsi_panel_3v_power(pdata, 0);
 
 panel_power_ctrl:
 	ret = mdss_dsi_panel_power_ctrl(pdata, power_state);
@@ -1201,7 +1225,7 @@ panel_power_ctrl:
 	/* Initialize Max Packet size for DCS reads */
 	ctrl_pdata->cur_max_pkt_size = 0;
 end:
-	pr_debug("%s-:\n", __func__);
+	printk("%s-:\n", __func__);
 
 	return ret;
 }
@@ -1304,6 +1328,8 @@ static int mdss_dsi_update_panel_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	ctrl_pdata->panel_mode = pinfo->mipi.mode;
 	mdss_panel_get_dst_fmt(pinfo->bpp, pinfo->mipi.mode,
 			pinfo->mipi.pixel_packing, &(pinfo->mipi.dst_format));
+	pinfo->cont_splash_enabled = 0;
+
 	return ret;
 }
 
@@ -1355,7 +1381,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		pr_debug("%s: dsi_on from panel low power state\n", __func__);
 		goto end;
 	}
-
+	mdss_dsi_panel_3v_power(pdata, 1);
 	ret = mdss_dsi_set_clk_src(ctrl_pdata);
 	if (ret) {
 		pr_err("%s: failed to set clk src. rc=%d\n", __func__, ret);
@@ -1396,6 +1422,11 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	if (mipi->lp11_init) {
 		if (mdss_dsi_pinctrl_set_state(ctrl_pdata, true))
 			pr_debug("reset enable: pinctrl not enabled\n");
+
+#if defined(CONFIG_BOARD_PEONY)
+	msleep(80);
+#endif
+
 		mdss_dsi_panel_reset(pdata, 1);
 	}
 
@@ -1416,7 +1447,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 
 end:
-	pr_debug("%s-:\n", __func__);
+	printk("%s-:\n", __func__);
 	return ret;
 }
 
@@ -3905,6 +3936,7 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
+	int rc;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	/*
@@ -3919,6 +3951,35 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 		if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			pr_debug("%s:%d, Disp_en gpio not specified\n",
 					__func__, __LINE__);
+	}
+
+	ctrl_pdata->lcd_5v_vsp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"zte,lcd-5v-vsp-enable-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->lcd_5v_vsp_en_gpio)) {
+		pr_err("%s:%d, qcom,lcd-5v-vsp-enable-gpio not specified\n",
+						__func__, __LINE__);
+	} else {
+		rc = gpio_request(ctrl_pdata->lcd_5v_vsp_en_gpio, "lcd_5v_vsp_en_gpio");
+		if (rc) {
+			pr_err("request lcd_5v_vsp_en_gpio failed, rc=%d\n",
+			       rc);
+			gpio_free(ctrl_pdata->lcd_5v_vsp_en_gpio);
+			return -ENODEV;
+		}
+	}
+	ctrl_pdata->lcd_5v_vsn_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"zte,lcd-5v-vsn-enable-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->lcd_5v_vsn_en_gpio)) {
+		pr_err("%s:%d, qcom,lcd-5v-vsn-enable-gpio not specified\n",
+						__func__, __LINE__);
+	} else {
+		rc = gpio_request(ctrl_pdata->lcd_5v_vsn_en_gpio, "lcd_5v_vsn_en_gpio");
+		if (rc) {
+			pr_err("request lcd_5v_vsn_en_gpio failed, rc=%d\n",
+			       rc);
+			gpio_free(ctrl_pdata->lcd_5v_vsn_en_gpio);
+			return -ENODEV;
+		}
 	}
 
 	ctrl_pdata->disp_te_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
@@ -4113,6 +4174,21 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 
 	pr_info("%s: Continuous splash %s\n", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");
+
+	ctrl_pdata->lcd_3v_vsp_en_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+		"zte,lcd-3v-vsp-enable-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->lcd_3v_vsp_en_gpio)) {
+		pr_err("%s:%d, qcom,lcd-3v-vsp-enable-gpio not specified\n",
+						__func__, __LINE__);
+	} else {
+		rc = gpio_request(ctrl_pdata->lcd_3v_vsp_en_gpio, "lcd_3v_vsp_en_gpio");
+		if (rc) {
+			pr_err("request lcd_3v_vsp_en_gpio failed, rc=%d\n",
+			       rc);
+			gpio_free(ctrl_pdata->lcd_3v_vsp_en_gpio);
+			return -ENODEV;
+		}
+	}
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {

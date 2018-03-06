@@ -632,9 +632,19 @@ static void mdss_dsi_28nm_phy_regulator_enable(
 		/* Regulator ctrl 4 */
 		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x10, pd->regulator[4]);
-		/* LDO ctrl */
+		#if (defined(CONFIG_BOARD_STOLLEN) || defined(CONFIG_BOARD_WARP8))	/* P840A20 & N9517 LDO mode */
+		if ((ctrl_pdata->shared_data->hw_rev ==
+			MDSS_DSI_HW_REV_103_1)
+			|| (ctrl_pdata->shared_data->hw_rev ==
+			MDSS_DSI_HW_REV_104_2))
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x05);
+		else
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x0d);
+		#else
+		/* not LDO ctrl mode*/
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
 		/* Regulator ctrl 0 */
+		#endif
 		MIPI_OUTP(ctrl_pdata->phy_regulator_io.base,
 				pd->regulator[0]);
 	}

@@ -1,4 +1,7 @@
-
+ifeq ($(ZTE_FASTMMI_MANUFACTURING_VERSION),true)
+ccflags-$(CONFIG_BOARD_CROCUS) += -DPV_BOARD_CROCUS
+ccflags-$(CONFIG_BOARD_FLORIST) += -DPV_BOARD_FLORIST
+endif
 # LED Core
 obj-$(CONFIG_NEW_LEDS)			+= led-core.o
 obj-$(CONFIG_LEDS_CLASS)		+= led-class.o
@@ -59,7 +62,7 @@ obj-$(CONFIG_LEDS_QPNP_WLED)		+= leds-qpnp-wled.o
 obj-$(CONFIG_LEDS_SYSCON)		+= leds-syscon.o
 obj-$(CONFIG_LEDS_VERSATILE)		+= leds-versatile.o
 obj-$(CONFIG_LEDS_MENF21BMC)		+= leds-menf21bmc.o
-obj-$(CONFIG_LEDS_AW2013)		+= leds-aw2013.o
+obj-$(CONFIG_LEDS_AW2013)		+= aw2013.o
 
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o

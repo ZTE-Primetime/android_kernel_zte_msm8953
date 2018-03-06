@@ -28,12 +28,24 @@
 #include <linux/pstore_ram.h>
 #include <asm/page.h>
 
+#ifdef CONFIG_ZTE_RAM_CONSOLE
+struct persistent_ram_buffer {
+	uint32_t    sig;
+	uint32_t    sig_pad ;
+	atomic_t    start;
+	uint32_t    start_pad;
+	atomic_t    size;
+	uint32_t    size_pad;
+	uint8_t     data[0];
+};
+#else
 struct persistent_ram_buffer {
 	uint32_t    sig;
 	atomic_t    start;
 	atomic_t    size;
 	uint8_t     data[0];
 };
+#endif
 
 #define PERSISTENT_RAM_SIG (0x43474244) /* DBGC */
 
@@ -464,7 +476,9 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 				    struct persistent_ram_ecc_info *ecc_info)
 {
 	int ret;
-
+#ifdef CONFIG_ZTE_RAM_CONSOLE
+	bool haveOldLog = false;
+#endif
 	ret = persistent_ram_init_ecc(prz, ecc_info);
 	if (ret)
 		return ret;
@@ -480,6 +494,9 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 			pr_debug("found existing buffer, size %zu, start %zu\n",
 				 buffer_size(prz), buffer_start(prz));
 			persistent_ram_save_old(prz);
+#ifdef CONFIG_ZTE_RAM_CONSOLE
+                        haveOldLog = true;
+#endif
 			return 0;
 		}
 	} else {
@@ -488,8 +505,14 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 	}
 
 	prz->buffer->sig = sig;
-	persistent_ram_zap(prz);
-
+#ifdef CONFIG_ZTE_RAM_CONSOLE
+        if(!haveOldLog)
+        {
+#endif
+		persistent_ram_zap(prz);
+#ifdef CONFIG_ZTE_RAM_CONSOLE
+	}
+#endif
 	return 0;
 }
 

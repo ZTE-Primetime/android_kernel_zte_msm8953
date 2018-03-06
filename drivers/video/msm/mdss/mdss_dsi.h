@@ -431,6 +431,7 @@ struct mdss_dsi_ctrl_pdata {
 	int rst_gpio;
 	int disp_en_gpio;
 	int bklt_en_gpio;
+	int lcd_3v_vsp_en_gpio;
 	int mode_gpio;
 	int bklt_ctrl;	/* backlight ctrl */
 	bool pwm_pmi;
@@ -441,6 +442,10 @@ struct mdss_dsi_ctrl_pdata {
 	int new_fps;
 	int pwm_enabled;
 	int clk_lane_cnt;
+
+	int lcd_5v_vsp_en_gpio;
+	int lcd_5v_vsn_en_gpio;
+	
 	bool dmap_iommu_map;
 	bool dsi_irq_line;
 	bool dcs_cmd_insert;
@@ -665,6 +670,8 @@ void mdss_dsi_set_burst_mode(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 	u32 mask, u32 val);
 int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_panel_5v_power(struct mdss_panel_data *pdata, int enable);
+void mdss_dsi_panel_3v_power(struct mdss_panel_data *pdata, int enable);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

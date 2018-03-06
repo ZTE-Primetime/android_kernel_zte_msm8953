@@ -241,6 +241,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(input_current_limited),
 	POWER_SUPPLY_ATTR(input_current_now),
 	POWER_SUPPLY_ATTR(rerun_aicl),
+	POWER_SUPPLY_ATTR(ship_mode),
 	POWER_SUPPLY_ATTR(cycle_count_id),
 	POWER_SUPPLY_ATTR(safety_timer_expired),
 	POWER_SUPPLY_ATTR(restricted_charging),

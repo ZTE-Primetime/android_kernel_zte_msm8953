@@ -1862,9 +1862,15 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 			value = FLASH_LED_MIN_CURRENT_MA;
 		flash_node->prgm_current = value;
 	}
-
+#if (defined(CONFIG_BOARD_FLORIST))
+#if (defined(PV_BOARD_FLORIST))
 	queue_work(led->ordered_workq, &flash_node->work);
-
+#else
+	qpnp_flash_led_work(&flash_node->work);
+#endif
+#else
+	queue_work(led->ordered_workq, &flash_node->work);
+#endif
 	return;
 }
 

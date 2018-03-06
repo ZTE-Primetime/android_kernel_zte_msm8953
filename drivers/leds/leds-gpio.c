@@ -33,6 +33,9 @@ struct gpio_led_data {
 	int (*platform_gpio_blink_set)(unsigned gpio, int state,
 			unsigned long *delay_on, unsigned long *delay_off);
 };
+#if defined(CONFIG_BOARD_VIOLET)
+extern void zte_spmi_write(void);
+#endif
 
 static void gpio_led_work(struct work_struct *work)
 {
@@ -55,6 +58,8 @@ static void gpio_led_set(struct led_classdev *led_cdev,
 		container_of(led_cdev, struct gpio_led_data, cdev);
 	int level;
 
+	pr_info("gpio_led_set name = %s,value = %d can_sleep =%d\n",
+		led_cdev->name, value, led_dat->can_sleep);
 	if (value == LED_OFF)
 		level = 0;
 	else
@@ -77,6 +82,9 @@ static void gpio_led_set(struct led_classdev *led_cdev,
 			led_dat->blinking = 0;
 		} else
 			gpio_set_value(led_dat->gpio, level);
+#if defined(CONFIG_BOARD_VIOLET)
+			zte_spmi_write();
+#endif
 	}
 }
 
@@ -98,7 +106,13 @@ static int create_gpio_led(const struct gpio_led *template,
 	int ret, state;
 
 	led_dat->gpio = -1;
-
+#if defined(CONFIG_BOARD_VIOLET)
+	gpio_free(template->gpio);
+	ret = gpio_request(template->gpio, template->name);
+	pr_info("create_gpio_led ret=%d\n", ret);
+	if (ret < 0)
+		return ret;
+#else
 	/* skip leds that aren't available */
 	if (!gpio_is_valid(template->gpio)) {
 		dev_info(parent, "Skipping unavailable LED gpio %d (%s)\n",
@@ -109,7 +123,7 @@ static int create_gpio_led(const struct gpio_led *template,
 	ret = devm_gpio_request(parent, template->gpio, template->name);
 	if (ret < 0)
 		return ret;
-
+#endif
 	led_dat->cdev.name = template->name;
 	led_dat->cdev.default_trigger = template->default_trigger;
 	led_dat->gpio = template->gpio;
@@ -187,10 +201,16 @@ static struct gpio_leds_priv *gpio_leds_create_of(struct platform_device *pdev)
 		struct gpio_led led = {};
 		enum of_gpio_flags flags;
 		const char *state;
-
+#if defined(CONFIG_BOARD_VIOLET)
+		led.active_low = flags & 0;
+		led.name = of_get_property(child, "label", NULL) ? : child->name;
+		led.gpio = of_get_named_gpio(child, led.name, 0);
+		pr_info("led.gpio=%d led.name=%s\n", led.gpio, led.name);
+#else
 		led.gpio = of_get_gpio_flags(child, 0, &flags);
 		led.active_low = flags & OF_GPIO_ACTIVE_LOW;
 		led.name = of_get_property(child, "label", NULL) ? : child->name;
+#endif
 		led.default_trigger =
 			of_get_property(child, "linux,default-trigger", NULL);
 		state = of_get_property(child, "default-state", NULL);

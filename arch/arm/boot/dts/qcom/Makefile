@@ -186,7 +186,12 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
 	msm8917-pmi8937-rcm.dtb \
 	msm8917-pmi8950-rcm.dtb \
 	msm8917-qgp-tmo.dtb \
-	msm8917-pmi8937-qrd-sku5.dtb
+	msm8917-pmi8937-qrd-sku5.dtb \
+	msm8917-pmi8937-zte-financier.dtb \
+	msm8917-pmi8937-zte-peony.dtb \
+	msm8917-pmi8950-zte-peony.dtb \
+	msm8917-pmi8940-zte-peony.dtb \
+	msm8917-pmi8940-zte-proline.dtb
 
 dtb-$(CONFIG_ARCH_MSM8920) += msm8920-pmi8937-cdp.dtb \
 	msm8920-pmi8937-mtp.dtb \
@@ -194,7 +199,8 @@ dtb-$(CONFIG_ARCH_MSM8920) += msm8920-pmi8937-cdp.dtb \
 	msm8920-pmi8950-mtp.dtb \
 	msm8920-pmi8937-rcm.dtb \
 	msm8920-pmi8950-rcm.dtb \
-	msm8920-pmi8940-qrd-sku7.dtb
+	msm8920-pmi8940-qrd-sku7.dtb \
+	msm8920-pmi8940-zte-warp8.dtb
 
 dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
 	msm8940-pmi8937-mtp.dtb \
@@ -208,7 +214,11 @@ dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
 	msm8940-pmi8940-mtp.dtb \
 	msm8940-pmi8940-cdp.dtb \
 	msm8940-pmi8940-rcm.dtb \
-	msm8940-pmi8940-qrd-sku7.dtb
+	msm8940-pmi8940-qrd-sku7.dtb \
+	msm8940-pmi8950-zte-stollen.dtb \
+	msm8940-pmi8950-zte-bolton.dtb \
+	msm8940-pmi8950-zte-crocus.dtb \
+	msm8940-pmi8950-zte-violet.dtb
 
 dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	msm8953-rumi.dtb \
@@ -223,7 +233,9 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	apq8053-ext-audio-mtp.dtb \
 	msm8953-cdp-1200p.dtb \
 	msm8953-iot-mtp.dtb \
-	apq8053-iot-mtp.dtb
+	apq8053-iot-mtp.dtb \
+	msm8953-zte-florist.dtb \
+	msm8953-zte-primrose.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
 	mdm9607-cdp.dtb \

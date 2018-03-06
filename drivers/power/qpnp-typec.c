@@ -94,6 +94,7 @@ struct qpnp_typec_chip {
 	struct regulator	*ss_mux_vreg;
 	struct mutex		typec_lock;
 	spinlock_t		rw_lock;
+	struct class		*device_class;
 
 	u16			base;
 
@@ -869,6 +870,59 @@ static int qpnp_typec_dr_get_property(struct dual_role_phy_instance *dual_role,
 	return 0;
 }
 
+/* For Emode, read typec chip info */
+static ssize_t show_chip_info(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct qpnp_typec_chip *chip = dev_get_drvdata(dev);
+	u8 reg;
+	int rc;
+
+	rc = qpnp_typec_read(chip, &reg, INT_RT_STS_REG(chip->base), 1);
+	if (rc) {
+		pr_err("failed to read RT_STS_REG rc=%d\n", rc);
+		return rc;
+	}
+	return snprintf(buf, PAGE_SIZE, "USB TypeC chip info:\n"
+					"Manufacture: Qualcomm\n"
+					"Chip Name  : PM8953\n"
+					"Revision ID : null\n");
+}
+
+static DEVICE_ATTR(chip_info, S_IRUGO, show_chip_info, NULL);
+
+static struct device_attribute *qpnp_typec_attributes[] = {
+	&dev_attr_chip_info,
+	NULL
+};
+
+static int qpnp_typec_create_device(struct qpnp_typec_chip *chip)
+{
+	struct device_attribute **attrs = qpnp_typec_attributes;
+	struct device_attribute *attr;
+	int err;
+
+	pr_debug("%s:\n", __func__);
+	chip->device_class = class_create(THIS_MODULE, "type-c");
+	if (IS_ERR(chip->device_class))
+		return PTR_ERR(chip->device_class);
+
+	chip->dev = device_create(chip->device_class, NULL, 0, NULL, "chip");
+	if (IS_ERR(chip->dev))
+		return PTR_ERR(chip->dev);
+
+	dev_set_drvdata(chip->dev, chip);
+
+	while ((attr = *attrs++)) {
+		err = device_create_file(chip->dev, attr);
+		if (err) {
+			device_destroy(chip->device_class, 0);
+			return err;
+		}
+	}
+	return 0;
+}
+
 static int qpnp_typec_probe(struct spmi_device *spmi)
 {
 	int rc;
@@ -901,6 +955,13 @@ static int qpnp_typec_probe(struct spmi_device *spmi)
 	device_init_wakeup(&spmi->dev, 1);
 	mutex_init(&chip->typec_lock);
 	spin_lock_init(&chip->rw_lock);
+
+	/* create device and sysfs nodes */
+	rc = qpnp_typec_create_device(chip);
+	if (rc) {
+		pr_err("%s: create device failed\n", __func__);
+		return rc;
+	}
 
 	/* determine initial status */
 	rc = qpnp_typec_determine_initial_status(chip);

@@ -42,6 +42,8 @@
 
 #include "peripheral-loader.h"
 
+#include <linux/reboot.h>
+
 #define pil_err(desc, fmt, ...)						\
 	dev_err(desc->dev, "%s: " fmt, desc->name, ##__VA_ARGS__)
 #define pil_info(desc, fmt, ...)					\
@@ -55,6 +57,10 @@
 
 #define PIL_NUM_DESC		10
 static void __iomem *pil_info_base;
+
+extern unsigned int sdlog_memory_get_addr(void);
+extern int sdlog_memory_get_size(void);
+extern int sdlog_memory_reserved(void);
 
 /**
  * proxy_timeout - Override for proxy vote timeouts
@@ -224,6 +230,17 @@ int pil_assign_mem_to_subsys_and_linux(struct pil_desc *desc,
 	if (ret)
 		pil_err(desc, "%s: failed for %pa address of size %zx - subsys VMid %d\n",
 				__func__, &addr, size, desc->subsys_vmid);
+
+	if ((desc->subsys_vmid == VMID_MSS_MSA) && sdlog_memory_reserved())
+	{
+		ret = hyp_assign_phys(sdlog_memory_get_addr(), sdlog_memory_get_size(), srcVM, 1, destVM, destVMperm, 2);
+		pil_err(desc, "%s: ruijiagui assign sdlog memory for %pa address of size %zx - subsys VMid %d, ret %d\n",
+          __func__, &addr, size, desc->subsys_vmid, ret);
+	}
+  
+  ret = hyp_assign_phys(0x8FB00000, 1048576, srcVM, 1, destVM, destVMperm, 2);
+  pil_err(desc, "%s: ruijiagui assign vlog memory for %pa address of size %zx - subsys VMid %d, ret %d\n",
+        __func__, &addr, size, desc->subsys_vmid, ret);
 
 	return ret;
 }
@@ -800,6 +817,9 @@ int pil_boot(struct pil_desc *desc)
 		ret = desc->ops->init_image(desc, fw->data, fw->size);
 	if (ret) {
 		pil_err(desc, "Invalid firmware metadata\n");
+#ifdef CONFIG_ZTE_PIL_AUTH_ERROR_DETECTION
+		kernel_restart("unauth");
+#endif
 		goto err_boot;
 	}
 

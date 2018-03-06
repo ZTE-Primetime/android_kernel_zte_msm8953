@@ -54,6 +54,14 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 	enum msm_camera_device_type_t device_type,
 	struct msm_camera_i2c_client *sensor_i2c_client);
+#if defined(CONFIG_BOARD_FLORIST)
+int msm_camera_power_up_eeprom(struct msm_camera_power_ctrl_t *ctrl,
+	enum msm_camera_device_type_t device_type,
+	struct msm_camera_i2c_client *sensor_i2c_client);
+int msm_camera_power_down_eeprom(struct msm_camera_power_ctrl_t *ctrl,
+	enum msm_camera_device_type_t device_type,
+	struct msm_camera_i2c_client *sensor_i2c_client);
+#endif
 
 int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 	int num_vreg, struct msm_sensor_power_setting *power_setting,

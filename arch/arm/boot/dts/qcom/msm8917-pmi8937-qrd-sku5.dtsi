@@ -36,7 +36,7 @@
 	qcom,esd-check-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
-
+#if 0
 &soc {
 	i2c@78b7000 {
 		status = "ok";
@@ -90,7 +90,7 @@
 		qcom,y-offset = <0>;
 	};
 };
-
+#endif
 &wled {
 	qcom,cons-sync-write-delay-us = <1000>;
 };

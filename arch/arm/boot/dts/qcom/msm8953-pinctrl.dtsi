@@ -110,6 +110,21 @@
 				};
 			};
 		};
+		zte_hall: zte_hall {
+
+			zte_hall_gpio_active: zte_hall_gpio_active {
+				mux {
+					pins = "gpio90";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio90";
+					drive-strength = <2>; /* 2 mA */
+					bias-disable = <0>; /* no pull */
+					input-enable; /* input */
+				};
+			};
+		};
 
 		/*sensors */
 		cam_sensor_mclk0_default: cam_sensor_mclk0_default {
@@ -346,12 +361,12 @@
 		pmx_mdss: pmx_mdss {
 			mdss_dsi_active: mdss_dsi_active {
 				mux {
-					pins = "gpio61", "gpio59";
+					pins = "gpio61";/*for camera delet gpio 59*/
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio61", "gpio59";
+					pins = "gpio61";/*for camera delet gpio 59*/
 					drive-strength = <8>; /* 8 mA */
 					bias-disable = <0>; /* no pull */
 					output-high;
@@ -360,12 +375,12 @@
 
 			mdss_dsi_suspend: mdss_dsi_suspend {
 				mux {
-					pins = "gpio61", "gpio59";
+					pins = "gpio61";/*for camera delet gpio 59*/
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio61", "gpio59";
+					pins = "gpio61";/*for camera delet gpio 59*/
 					drive-strength = <2>; /* 2 mA */
 					bias-pull-down; /* pull down */
 				};
@@ -545,7 +560,7 @@
 			config {
 				pins = "gpio133";
 				drive-strength = <2>;
-				bias-pull-up;
+				bias-disable;
 			};
 		};
 
@@ -652,6 +667,36 @@
 			};
 		};
 
+		i2c_8 {
+			i2c_8_active: i2c_8_active {
+				/* active state */
+				mux {
+					pins = "gpio98", "gpio99";
+					function = "blsp_i2c8";
+				};
+
+				config {
+					pins = "gpio98", "gpio99";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			i2c_8_sleep: i2c_8_sleep {
+				/* suspended state */
+				mux {
+					pins = "gpio98", "gpio99";
+					function = "blsp_i2c8";
+				};
+
+				config {
+					pins = "gpio98", "gpio99";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		pmx_rd_nfc_int {
 			/*qcom,pins = <&gp 17>;*/
 			pins = "gpio17";
@@ -688,6 +733,58 @@
 			};
 		};
 
+		sx9500_int_pin {//desar by yanwei 20170105
+			sx9500_int_active: sx9500_int_active {
+				mux {
+					pins = "gpio17";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio17";
+					drive-strength = <8>;
+					bias-disable;
+					input-enable;
+				};
+			};
+			sx9500_int_suspend: sx9500_int_suspend {
+				mux {
+					pins = "gpio17";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio17";
+					drive-strength = <8>;
+					bias-disable;
+					input-enable;
+				};
+			};
+		};
+		sx9500_txen {/*desar by yanwei 20170105 */
+			sx9500_txen_active: sx9500_txen_active {
+				mux {
+					pins = "gpio16";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio16";
+					drive-strength = <2>;
+					bias-disable;
+					output-high;
+				};
+			};
+			sx9500_txen_sleep: sx9500_txen_sleep {
+				mux {
+					pins = "gpio16";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio16";
+					drive-strength = <2>;
+					bias-disable;
+					output-low;
+				};
+			};
+		};
 		wcnss_pmux_5wire {
 			/* Active configuration of bus pins */
 			wcnss_default: wcnss_default {
@@ -1224,12 +1321,12 @@
 		tlmm_gpio_key {
 			gpio_key_active: gpio_key_active {
 				mux {
-					pins = "gpio85", "gpio86", "gpio87";
+					pins = "gpio85", "gpio86", "gpio132";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio85", "gpio86", "gpio87";
+					pins = "gpio85", "gpio86", "gpio132";
 					drive-strength = <2>;
 					bias-pull-up;
 				};
@@ -1502,5 +1599,69 @@
 				bias-disable;
 			};
 		};
+
+		/* zte add for fingerprint:start*/
+			goodix_reset {
+				goodix_reset_active:active {
+						mux {
+							pins = "gpio63";
+							function = "gpio";
+						};
+
+						config {
+							pins = "gpio63";
+							drive-strength = <2>;
+							bias-disable;
+							output-high;
+						};
+				};
+
+				goodix_reset_reset:reset {
+						mux {
+							pins = "gpio63";
+							function = "gpio";
+						};
+
+						config {
+							pins = "gpio63";
+							drive-strength = <2>;
+							bias-disable;
+							output-low;
+						};
+				};
+			};
+			goodix_irq {
+				goodix_irq_active:active {
+						mux {
+							pins = "gpio48";
+							function = "gpio";
+						};
+
+						config {
+							pins = "gpio48";
+							drive-strength = <2>;
+							bias-pull-down;
+							input-enable;
+						};
+				};
+			};
+
+			ztemisc_fp_id {
+				ztemisc_fpid_active:ztemisc_fpid_active {
+						mux {
+							pins = "gpio47";
+							function = "gpio";
+						};
+
+						config {
+							pins = "gpio47";
+							drive-strength = <2>;
+							bias-pull-up;
+							input-enable;
+						};
+				};
+			};
+		/* zte add for fingerprint:end*/
+
 	};
 };

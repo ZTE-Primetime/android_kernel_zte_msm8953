@@ -18,6 +18,13 @@
 #include "msm_cci.h"
 #include "msm_eeprom.h"
 
+#define  EEPROM_SPC_SIZE 126
+#define  EEPROM_SPC_FLAG_ADDR 3485
+#define  EEPROM_SPC_LEFT_ADDR_START 3486
+#define  EEPROM_SPC_RIGHT_ADDR_START 3549
+#define  SENSOR_SPC_LEFT_ADDR  53324
+#define  SENSOR_SPC_RIGHT_ADDR  53388
+
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
@@ -27,11 +34,11 @@ static struct v4l2_file_operations msm_eeprom_v4l2_subdev_fops;
 #endif
 
 /**
-  * msm_get_read_mem_size - Get the total size for allocation
-  * @eeprom_map_array:	mem map
-  *
-  * Returns size after computation size, returns error in case of error
-  */
+	* msm_get_read_mem_size - Get the total size for allocation
+	* @eeprom_map_array:	mem map
+	*
+	* Returns size after computation size, returns error in case of error
+	*/
 static int msm_get_read_mem_size
 	(struct msm_eeprom_memory_map_array *eeprom_map_array) {
 	int size = 0, i, j;
@@ -65,13 +72,13 @@ static int msm_get_read_mem_size
 }
 
 /**
-  * msm_eeprom_verify_sum - verify crc32 checksum
-  * @mem:	data buffer
-  * @size:	size of data buffer
-  * @sum:	expected checksum
-  *
-  * Returns 0 if checksum match, -EINVAL otherwise.
-  */
+	* msm_eeprom_verify_sum - verify crc32 checksum
+	* @mem:	data buffer
+	* @size:	size of data buffer
+	* @sum:	expected checksum
+	*
+	* Returns 0 if checksum match, -EINVAL otherwise.
+	*/
 static int msm_eeprom_verify_sum(const char *mem, uint32_t size, uint32_t sum)
 {
 	uint32_t crc = ~0;
@@ -90,15 +97,15 @@ static int msm_eeprom_verify_sum(const char *mem, uint32_t size, uint32_t sum)
 }
 
 /**
-  * msm_eeprom_match_crc - verify multiple regions using crc
-  * @data:	data block to be verified
-  *
-  * Iterates through all regions stored in @data.  Regions with odd index
-  * are treated as data, and its next region is treated as checksum.  Thus
-  * regions of even index must have valid_size of 4 or 0 (skip verification).
-  * Returns a bitmask of verified regions, starting from LSB.  1 indicates
-  * a checksum match, while 0 indicates checksum mismatch or not verified.
-  */
+	* msm_eeprom_match_crc - verify multiple regions using crc
+	* @data:	data block to be verified
+	*
+	* Iterates through all regions stored in @data.  Regions with odd index
+	* are treated as data, and its next region is treated as checksum.  Thus
+	* regions of even index must have valid_size of 4 or 0 (skip verification).
+	* Returns a bitmask of verified regions, starting from LSB.  1 indicates
+	* a checksum match, while 0 indicates checksum mismatch or not verified.
+	*/
 static uint32_t msm_eeprom_match_crc(struct msm_eeprom_memory_block_t *data)
 {
 	int j, rc;
@@ -127,7 +134,7 @@ static uint32_t msm_eeprom_match_crc(struct msm_eeprom_memory_block_t *data)
 		}
 		sum = (uint32_t *) (memptr + map[j].mem.valid_size);
 		rc = msm_eeprom_verify_sum(memptr, map[j].mem.valid_size,
-					   *sum);
+						 *sum);
 		if (!rc)
 			ret |= 1 << (j/2);
 		memptr += map[j].mem.valid_size + map[j+1].mem.valid_size;
@@ -136,13 +143,13 @@ static uint32_t msm_eeprom_match_crc(struct msm_eeprom_memory_block_t *data)
 }
 
 /**
-  * read_eeprom_memory() - read map data into buffer
-  * @e_ctrl:	eeprom control struct
-  * @block:	block to be read
-  *
-  * This function iterates through blocks stored in block->map, reads each
-  * region and concatenate them into the pre-allocated block->mapdata
-  */
+	* read_eeprom_memory() - read map data into buffer
+	* @e_ctrl:	eeprom control struct
+	* @block:	block to be read
+	*
+	* This function iterates through blocks stored in block->map, reads each
+	* region and concatenate them into the pre-allocated block->mapdata
+	*/
 static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 	struct msm_eeprom_memory_block_t *block)
 {
@@ -227,14 +234,14 @@ static int read_eeprom_memory(struct msm_eeprom_ctrl_t *e_ctrl,
 	return rc;
 }
 /**
-  * msm_eeprom_parse_memory_map() - parse memory map in device node
-  * @of:	device node
-  * @data:	memory block for output
-  *
-  * This functions parses @of to fill @data.  It allocates map itself, parses
-  * the @of node, calculate total data length, and allocates required buffer.
-  * It only fills the map, but does not perform actual reading.
-  */
+	* msm_eeprom_parse_memory_map() - parse memory map in device node
+	* @of:	device node
+	* @data:	memory block for output
+	*
+	* This functions parses @of to fill @data.  It allocates map itself, parses
+	* the @of node, calculate total data length, and allocates required buffer.
+	* It only fills the map, but does not perform actual reading.
+	*/
 static int msm_eeprom_parse_memory_map(struct device_node *of,
 	struct msm_eeprom_memory_block_t *data)
 {
@@ -316,12 +323,12 @@ ERROR:
 }
 
 /**
-  * eeprom_parse_memory_map - Parse mem map
-  * @e_ctrl:	ctrl structure
-  * @eeprom_map_array: eeprom map
-  *
-  * Returns success or failure
-  */
+	* eeprom_parse_memory_map - Parse mem map
+	* @e_ctrl:	ctrl structure
+	* @eeprom_map_array: eeprom map
+	*
+	* Returns success or failure
+	*/
 static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 	struct msm_eeprom_memory_map_array *eeprom_map_array)
 {
@@ -426,12 +433,12 @@ clean_up:
 }
 
 /**
-  * msm_eeprom_power_up - Do eeprom power up here
-  * @e_ctrl:	ctrl structure
-  * @power_info: power up info for eeprom
-  *
-  * Returns success or failure
-  */
+	* msm_eeprom_power_up - Do eeprom power up here
+	* @e_ctrl:	ctrl structure
+	* @power_info: power up info for eeprom
+	*
+	* Returns success or failure
+	*/
 static int msm_eeprom_power_up(struct msm_eeprom_ctrl_t *e_ctrl,
 	struct msm_camera_power_ctrl_t *power_info) {
 	int32_t rc = 0;
@@ -467,10 +474,10 @@ static int msm_eeprom_power_up(struct msm_eeprom_ctrl_t *e_ctrl,
 }
 
 /**
-  * msm_eeprom_power_up - Do power up, parse and power down
-  * @e_ctrl: ctrl structure
-  * Returns success or failure
-  */
+	* msm_eeprom_power_up - Do power up, parse and power down
+	* @e_ctrl: ctrl structure
+	* Returns success or failure
+	*/
 static int eeprom_init_config(struct msm_eeprom_ctrl_t *e_ctrl,
 	void __user *argp)
 {
@@ -580,7 +587,7 @@ free_mem:
 }
 
 static int msm_eeprom_get_cmm_data(struct msm_eeprom_ctrl_t *e_ctrl,
-				       struct msm_eeprom_cfg_data *cdata)
+							 struct msm_eeprom_cfg_data *cdata)
 {
 	int rc = 0;
 	struct msm_eeprom_cmm_t *cmm_data = &e_ctrl->eboard_info->cmm_data;
@@ -681,7 +688,7 @@ static int msm_eeprom_config(struct msm_eeprom_ctrl_t *e_ctrl,
 }
 
 static int msm_eeprom_get_subdev_id(struct msm_eeprom_ctrl_t *e_ctrl,
-				    void *arg)
+						void *arg)
 {
 	uint32_t *subdev_id = (uint32_t *)arg;
 	CDBG("%s E\n", __func__);
@@ -967,7 +974,7 @@ static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
 		return -ENOMEM;
 	}
 	rc = msm_camera_get_dt_vreg_data(of_node, &power_info->cam_vreg,
-					     &power_info->num_vreg);
+							 &power_info->num_vreg);
 	if (rc < 0)
 		return rc;
 
@@ -1093,10 +1100,17 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 	}
 
 	rc = of_property_read_u32(spi->dev.of_node, "cell-index",
-				  &e_ctrl->subdev_id);
+					&e_ctrl->subdev_id);
 	CDBG("cell-index %d, rc %d\n", e_ctrl->subdev_id, rc);
 	if (rc < 0) {
 		pr_err("failed rc %d\n", rc);
+
+		/*
+		* Fixed CWE-404, Resource leak(RESOURCE_LEAK), checked by Coverity
+		*/
+		kfree(spi_client);
+		kfree(e_ctrl);
+
 		return rc;
 	}
 
@@ -1208,7 +1222,7 @@ static int msm_eeprom_spi_setup(struct spi_device *spi)
 	msm_sd_register(&e_ctrl->msm_sd);
 	e_ctrl->is_supported = (e_ctrl->is_supported << 1) | 1;
 	CDBG("%s success result=%d supported=%x X\n", __func__, rc,
-	     e_ctrl->is_supported);
+			 e_ctrl->is_supported);
 
 	return 0;
 
@@ -1337,7 +1351,7 @@ static int eeprom_config_read_cal_data32(struct msm_eeprom_ctrl_t *e_ctrl,
 	cdata.cfg.read_data.num_bytes = cdata32->cfg.read_data.num_bytes;
 	/* check range */
 	if (cdata.cfg.read_data.num_bytes >
-	    e_ctrl->cal_data.num_data) {
+			e_ctrl->cal_data.num_data) {
 		CDBG("%s: Invalid size. exp %u, req %u\n", __func__,
 			e_ctrl->cal_data.num_data,
 			cdata.cfg.read_data.num_bytes);
@@ -1573,8 +1587,38 @@ static long msm_eeprom_subdev_fops_ioctl32(struct file *file, unsigned int cmd,
 {
 	return video_usercopy(file, cmd, arg, msm_eeprom_subdev_do_ioctl32);
 }
-
 #endif
+
+/*eeprom spc begin*/
+struct msm_camera_i2c_reg_array imx258_spc_config[EEPROM_SPC_SIZE];
+int get_spc_flag = 0;
+int get_spc_data(uint8_t *ptr)
+{
+	int i = 0;
+	unsigned short table_0 = SENSOR_SPC_LEFT_ADDR;
+	unsigned short table_1 = SENSOR_SPC_RIGHT_ADDR;
+	int spc_flag = 0;
+	int j = 0;
+
+	spc_flag = ptr[EEPROM_SPC_FLAG_ADDR];
+	if (spc_flag == 1) {
+		for (i = 0; i < (EEPROM_SPC_SIZE/2); i++) {
+			j = EEPROM_SPC_LEFT_ADDR_START+i;
+			imx258_spc_config[i].reg_addr = table_0 + i;
+			imx258_spc_config[i].reg_data = ptr[j];
+		}
+		for (i = 0; i < EEPROM_SPC_SIZE/2; i++) {
+			j = EEPROM_SPC_RIGHT_ADDR_START+i;
+			imx258_spc_config[i+EEPROM_SPC_SIZE/2].reg_addr = table_1 + i;
+			imx258_spc_config[i+EEPROM_SPC_SIZE/2].reg_data = ptr[j];
+		}
+	get_spc_flag = 1;
+	} else {
+		CDBG("spc is not valid\n");
+	}
+	return spc_flag;
+}
+/*eeprom spc end*/
 
 static int msm_eeprom_platform_probe(struct platform_device *pdev)
 {
@@ -1709,13 +1753,19 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		rc = msm_eeprom_parse_memory_map(of_node, &e_ctrl->cal_data);
 		if (rc < 0)
 			goto board_free;
-
+#if defined(CONFIG_BOARD_FLORIST)
+		rc = msm_camera_power_up_eeprom(power_info, e_ctrl->eeprom_device_type,
+			&e_ctrl->i2c_client);
+#else
 		rc = msm_camera_power_up(power_info, e_ctrl->eeprom_device_type,
 			&e_ctrl->i2c_client);
+#endif
 		if (rc) {
 			pr_err("failed rc %d\n", rc);
 			goto memdata_free;
 		}
+
+		zte_eeprom_read_ready(e_ctrl);
 		rc = read_eeprom_memory(e_ctrl, &e_ctrl->cal_data);
 		if (rc < 0) {
 			pr_err("%s read_eeprom_memory failed\n", __func__);
@@ -1724,11 +1774,19 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		for (j = 0; j < e_ctrl->cal_data.num_data; j++)
 			CDBG("memory_data[%d] = 0x%X\n", j,
 				e_ctrl->cal_data.mapdata[j]);
+		/*eeprom spc begin*/
+		if (!strcmp(eb_info->eeprom_name, "imx258_gt24c16"))
+			rc = get_spc_data(e_ctrl->cal_data.mapdata);
 
+		/*eeprom spc end*/
 		e_ctrl->is_supported |= msm_eeprom_match_crc(&e_ctrl->cal_data);
-
+#if defined(CONFIG_BOARD_FLORIST)
+		rc = msm_camera_power_down_eeprom(power_info,
+			e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
+#else
 		rc = msm_camera_power_down(power_info,
 			e_ctrl->eeprom_device_type, &e_ctrl->i2c_client);
+#endif
 		if (rc) {
 			pr_err("failed rc %d\n", rc);
 			goto memdata_free;
@@ -1761,8 +1819,13 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 	return rc;
 
 power_down:
+#if defined(CONFIG_BOARD_FLORIST)
+	msm_camera_power_down_eeprom(power_info, e_ctrl->eeprom_device_type,
+		&e_ctrl->i2c_client);
+#else
 	msm_camera_power_down(power_info, e_ctrl->eeprom_device_type,
 		&e_ctrl->i2c_client);
+#endif
 memdata_free:
 	kfree(e_ctrl->cal_data.mapdata);
 	kfree(e_ctrl->cal_data.map);

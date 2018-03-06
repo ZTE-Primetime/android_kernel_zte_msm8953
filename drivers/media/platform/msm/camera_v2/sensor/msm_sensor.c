@@ -21,6 +21,8 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+int s5k3l8_actuator_flag = 0;
+
 static void msm_sensor_adjust_mclk(struct msm_camera_power_ctrl_t *ctrl)
 {
 	int idx;
@@ -349,13 +351,17 @@ long msm_sensor_subdev_fops_ioctl(struct file *file,
 {
 	return video_usercopy(file, cmd, arg, msm_sensor_subdev_do_ioctl);
 }
-
+/*
+extern struct msm_camera_i2c_reg_array imx258_spc_config[126];
+extern int get_spc_flag;
+*/
 static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	void __user *argp)
 {
 	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
 	int32_t rc = 0;
 	int32_t i = 0;
+	struct msm_camera_i2c_reg_setting config_array_spc;/*eeprom spc*/
 	mutex_lock(s_ctrl->msm_sensor_mutex);
 	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
 		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
@@ -487,6 +493,17 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		kfree(reg_setting);
 		break;
 	}
+	case CFG_SET_READ_INSENSOR_OTP:
+	/*
+	 * Add  s5k4h8 otp
+	*/
+	if (s_ctrl && s_ctrl->func_tbl->zte_apply_otp) {
+		s_ctrl->func_tbl->zte_apply_otp(s_ctrl);
+	}
+	/*
+	*  s5k4h8_update_lsc(s_ctrl);
+	*/
+		break;
 	case CFG_SLAVE_READ_I2C: {
 		struct msm_camera_i2c_read_config read_config;
 		struct msm_camera_i2c_read_config *read_config_ptr = NULL;
@@ -747,6 +764,23 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 					__LINE__, rc);
 				break;
 			}
+		/*eeprom spc begin*/
+		if (!strcmp(s_ctrl->sensordata->sensor_name, "imx258")) {
+			if (get_spc_flag == 1) {
+				config_array_spc.addr_type = MSM_CAMERA_I2C_WORD_ADDR;
+				config_array_spc.delay = 0;
+				config_array_spc.data_type = MSM_CAMERA_I2C_BYTE_DATA;
+				config_array_spc.size = 126;
+				config_array_spc.reg_setting = imx258_spc_config;
+				rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table(s_ctrl->sensor_i2c_client,
+				&config_array_spc);
+			}
+		}
+		/*eeprom spc end*/
+		if (!strcmp(s_ctrl->sensordata->sensor_name, "s5k3l8"))
+			s5k3l8_actuator_flag = 1;
+
 			s_ctrl->sensor_state = MSM_SENSOR_POWER_UP;
 			CDBG("%s:%d sensor state %d\n", __func__, __LINE__,
 				s_ctrl->sensor_state);
@@ -1420,6 +1454,8 @@ static struct msm_sensor_fn_t msm_sensor_func_tbl = {
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = msm_sensor_match_id,
+	.zte_read_otp = zte_read_insensor_otp,
+	.zte_apply_otp = zte_apply_insensor_otp,
 };
 
 static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {

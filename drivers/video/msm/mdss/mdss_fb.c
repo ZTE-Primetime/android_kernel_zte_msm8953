@@ -78,6 +78,12 @@
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
 
+#if defined(CONFIG_BOARD_PEONY)
+#ifdef ZTE_FASTMMI_MANUFACTURING_VERSION
+extern int error_state;
+#endif
+#endif
+
 static u32 mdss_fb_pseudo_palette[16] = {
 	0x00000000, 0xffffffff, 0xffffffff, 0xffffffff,
 	0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
@@ -115,6 +121,13 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
+
+#if defined(CONFIG_BOARD_PEONY)
+#ifdef ZTE_FASTMMI_MANUFACTURING_VERSION
+static void mdss_atomic_commit_proc(void);
+#endif
+#endif
+
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -1196,6 +1209,12 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	}
 
 	mdss_fb_init_panel_modes(mfd, pdata);
+
+#if defined(CONFIG_BOARD_PEONY)
+#ifdef ZTE_FASTMMI_MANUFACTURING_VERSION
+	mdss_atomic_commit_proc();
+#endif
+#endif
 
 	mfd->mdp_sync_pt_data.fence_name = "mdp-fence";
 	if (mfd->mdp_sync_pt_data.timeline == NULL) {
@@ -4324,6 +4343,59 @@ err:
 	layer->scale = NULL;
 	return ret;
 }
+
+
+/*************added by tzb 20170622************/
+#if defined(CONFIG_BOARD_PEONY)
+#ifdef ZTE_FASTMMI_MANUFACTURING_VERSION
+static int mdss_fb_get_error_state(void)
+{
+	return error_state;
+}
+
+
+ssize_t mdss_dsi_atomic_commit_value_read(struct file *file, char __user *page, size_t size, loff_t *ppos)
+{
+	int len = 0;
+	int retval = 0;
+	int val = 0;
+	char buf[64] = {0};
+
+	if (*ppos) {
+		return 0;
+	}
+
+	val = mdss_fb_get_error_state();
+	pr_debug("%s:val=%d\n", __func__, val);
+	if (val == -1) {
+		len = snprintf(buf, sizeof(buf), "%d\n", val);
+		retval = copy_to_user(page, buf, len);
+	} else {
+		len = snprintf(buf, sizeof(buf), "%d\n", 0);
+		retval = copy_to_user(page, buf, len);
+	}
+	*ppos += len;
+	return len;
+}
+
+static const struct file_operations proc_ops = {
+	.owner = THIS_MODULE,
+	.read = mdss_dsi_atomic_commit_value_read,
+	.write = NULL,
+};
+
+void mdss_atomic_commit_proc(void)
+{
+	struct proc_dir_entry *entry;
+
+	entry = proc_create("atomic_commit_value", 0664, NULL, &proc_ops);
+	if (entry == NULL) {
+		pr_debug("proc_create atomic_commit_value failed!\n");
+	}
+}
+#endif
+#endif
+/*************added by tzb 20170622************/
 
 static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	unsigned long *argp, struct file *file)

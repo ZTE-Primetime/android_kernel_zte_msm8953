@@ -174,18 +174,31 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,iterm-ma = <100>;
-			qcom,float-voltage-mv = <4200>;
-			qcom,resume-delta-mv = <200>;
+			qcom,iterm-ma = <150>;
+			qcom,float-voltage-mv = <4350>;
+			qcom,resume-delta-mv = <100>;
 			qcom,chg-inhibit-fg;
 			qcom,rparasitic-uohm = <100000>;
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,parallel-usb-min-current-ma = <1000>;
+			qcom,parallel-usb-9v-min-current-ma = <900>;
+			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,pmic-revid = <&pmi8940_revid>;
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
-			qcom,autoadjust-vfloat;
-
+			qcom,charging-timeout-mins = <768>;
+			qcom,precharging-timeout-mins = <24>;
+			qcom,fastchg-current-ma = <2000>;
+			qcom,charge-unknown-battery;
+			qcom,fastchg-current-comp = <900>;
+			qcom,float-voltage-comp = <10>;
+			qcom,dc-psy-type = "Mains";
+			qcom,dc-psy-ma = <1500>;
+			qcom,bmd-pin-src = "bpd_thm";
+			qcom,vchg_sns-vadc = <&pmi8940_vadc>;
+			qcom,dcin-vadc = <&pmi8940_vadc>;
+			qcom,vchg-adc-channel-id = <3>;
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
 				interrupts =	<0x2 0x10 0x0>,
@@ -286,17 +299,19 @@
 			compatible = "qcom,qpnp-fg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			qcom,resume-soc = <95>;
+			qcom,resume-soc = <99>;
 			status = "okay";
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
-			qcom,fg-iterm-ma = <150>;
-			qcom,fg-chg-iterm-ma = <100>;
+			qcom,fg-iterm-ma = <200>;
+			qcom,thermal-coefficients = [EC 85 75 4A FC 35];
+			qcom,fg-chg-iterm-ma = <150>;
 			qcom,pmic-revid = <&pmi8940_revid>;
-			qcom,fg-cutoff-voltage-mv = <3500>;
+			qcom,fg-cutoff-voltage-mv = <3400>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
-
+			qcom,ext-sense-type;
+			qcom,hold-soc-while-full;
 			qcom,fg-soc@4000 {
 			status = "okay";
 				reg = <0x4000 0x100>;
@@ -373,6 +388,12 @@
 			qcom,ibat-polling-delay-ms = <100>;
 		};
 
+		qcom,leds@a000 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa000 0x100>;
+			label = "mpp";
+		};
+
 		qcom,leds@a100 {
 			compatible = "qcom,leds-qpnp";
 			reg = <0xa100 0x100>;
@@ -387,13 +408,19 @@
 		#size-cells = <1>;
 
 		pmi8940_pwm: pwm@b000 {
-			status = "disabled";
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb000 0x100>;
 			reg-names = "qpnp-lpg-channel-base";
 			qcom,channel-id = <0>;
 			qcom,supported-sizes = <6>, <9>;
+			qcom,dtest-line = <2>;
+			qcom,dtest-output = <2>;
+			qcom,period = <4000000>;
 			#pwm-cells = <2>;
+			qcom,pwm {
+				qcom,duty = <2000000>;
+				label = "pwm";
+			};
 		};
 
 		labibb: qpnp-labibb-regulator {
@@ -422,7 +449,7 @@
 
 				qcom,qpnp-ibb-soft-start = <1000>;
 
-				qcom,qpnp-ibb-discharge-resistor = <32>;
+				qcom,qpnp-ibb-discharge-resistor = <300>;
 				qcom,qpnp-ibb-lab-pwrup-delay = <8000>;
 				qcom,qpnp-ibb-lab-pwrdn-delay = <8000>;
 				qcom,qpnp-ibb-en-discharge;
@@ -529,7 +556,7 @@
 				qcom,max-current = <1000>;
 				qcom,duration = <1280>;
 				qcom,id = <0>;
-				qcom,current = <625>;
+				qcom,current = <800>;
 			};
 
 			pmi8940_flash1: qcom,flash_1 {
@@ -540,7 +567,7 @@
 				qcom,max-current = <1000>;
 				qcom,duration = <1280>;
 				qcom,id = <1>;
-				qcom,current = <625>;
+				qcom,current = <800>;
 			};
 
 			pmi8940_torch0: qcom,torch_0 {
@@ -587,9 +614,9 @@
 			vcc_pon-supply = <&pon_perph_reg>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
-			qcom,actuator-type = "lra";
+			qcom,actuator-type = "erm";
 			qcom,wave-shape = "square";
-			qcom,vmax-mv = <2000>;
+			qcom,vmax-mv = <2784>;
 			qcom,ilim-ma = <800>;
 			qcom,sc-deb-cycles = <8>;
 			qcom,int-pwm-freq-khz = <505>;

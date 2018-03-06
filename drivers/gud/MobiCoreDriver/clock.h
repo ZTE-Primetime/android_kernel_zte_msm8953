@@ -15,7 +15,7 @@
 #ifndef _MC_CLOCK_H_
 #define _MC_CLOCK_H_
 
-#include "platform.h"	/* MC_CRYPTO_CLOCK_MANAGEMENT */
+#include "platform.h"   /* MC_CRYPTO_CLOCK_MANAGEMENT */
 
 #ifdef MC_CRYPTO_CLOCK_MANAGEMENT
 

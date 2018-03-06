@@ -25,6 +25,7 @@
 
 #include "gpiolib.h"
 
+int dts_gpio;
 /* Private data structure for of_gpiochip_find_and_xlate */
 struct gg_data {
 	enum of_gpio_flags *flags;
@@ -55,6 +56,7 @@ static int of_gpiochip_find_and_xlate(struct gpio_chip *gc, void *data)
 		return false;
 	 }
 
+	dts_gpio = ret;
 	gg_data->out_gpio = gpiochip_get_desc(gc, ret);
 	return true;
 }

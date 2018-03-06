@@ -119,14 +119,18 @@ static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 static void  __copy_atomic_commit_struct(struct mdp_layer_commit  *commit,
 	struct mdp_layer_commit32 *commit32)
 {
+	unsigned int destSize = sizeof(commit->commit_v1.reserved);
+	unsigned int srcSize = sizeof(commit32->commit_v1.reserved);
+	unsigned int count = (destSize <= srcSize ? destSize : srcSize);
 	commit->version = commit32->version;
 	commit->commit_v1.flags = commit32->commit_v1.flags;
 	commit->commit_v1.input_layer_cnt =
 		commit32->commit_v1.input_layer_cnt;
 	commit->commit_v1.left_roi = commit32->commit_v1.left_roi;
 	commit->commit_v1.right_roi = commit32->commit_v1.right_roi;
+
 	memcpy(&commit->commit_v1.reserved, &commit32->commit_v1.reserved,
-		sizeof(commit32->commit_v1.reserved));
+			count);
 }
 
 static struct mdp_input_layer32 *__create_layer_list32(
@@ -3484,6 +3488,12 @@ static int __copy_layer_pp_info_igc_params(
 			compat_ptr(pp_info32->igc_cfg.c0_c1_data);
 		pp_info->igc_cfg.c2_data =
 			compat_ptr(pp_info32->igc_cfg.c2_data);
+
+		/*
+		* Fixed CWE-404, Resource leak(RESOURCE_LEAK), checked by Coverity
+		*/
+		kfree(cfg_payload);
+
 		cfg_payload = NULL;
 		break;
 	}
@@ -3556,6 +3566,12 @@ static int __copy_layer_pp_info_hist_lut_params(
 		pp_info->hist_lut_cfg.len = pp_info32->hist_lut_cfg.len;
 		pp_info->hist_lut_cfg.data =
 				compat_ptr(pp_info32->hist_lut_cfg.data);
+
+		/*
+		* Fixed CWE-404, Resource leak(RESOURCE_LEAK), checked by Coverity
+		*/
+		kfree(cfg_payload);
+
 		cfg_payload = NULL;
 		break;
 	}
@@ -3645,6 +3661,12 @@ static int __copy_layer_pp_info_pa_v2_params(
 		break;
 	default:
 		pr_debug("version invalid\n");
+
+		/*
+		* Fixed CWE-404, Resource leak(RESOURCE_LEAK), checked by Coverity
+		*/
+		kfree(cfg_payload);
+
 		cfg_payload = NULL;
 		break;
 	}
@@ -3728,6 +3750,12 @@ static int __copy_layer_pp_info_pcc_params(
 		break;
 	default:
 		pr_debug("version invalid, fallback to legacy\n");
+
+		/*
+		* Fixed CWE-404, Resource leak(RESOURCE_LEAK), checked by Coverity
+		*/
+		kfree(cfg_payload);
+
 		cfg_payload = NULL;
 		break;
 	}

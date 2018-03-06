@@ -556,6 +556,21 @@ config BATTERY_GOLDFISH
 	  Say Y to enable support for the battery and AC power in the
 	  Goldfish emulator.
 
+config ZTE_HALL_AVAILABLE
+	tristate "Hall available"
+
+config TI25601_CHARGER
+	bool "ZTE TI BQ25601 Charger IC"
+	default n
+	help
+	  Say 'Y' here to enable it.
+
+config TIBQ27426_FG
+	bool "ZTE TI BQ27426 battery IC"
+	default n
+	help
+	  Say 'Y' here to enable it.
+
 config QPNP_VM_BMS
 	tristate "QPNP Voltage-Mode Battery Monitoring System driver"
 	depends on SPMI || MSM_SPMI

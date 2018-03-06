@@ -706,6 +706,7 @@ static void ffs_epfile_async_io_complete(struct usb_ep *_ep,
 	schedule_work(&io_data->work);
 }
 
+
 #define MAX_BUF_LEN	4096
 static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 {

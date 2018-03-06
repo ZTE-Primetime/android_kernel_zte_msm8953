@@ -928,6 +928,8 @@ static u32 mdss_mdp_calc_prefill_line_time(struct mdss_mdp_ctl *ctl,
 	if (!ctl || !ctl->mdata)
 		return 0;
 
+	mdata = ctl->mdata;
+
 	mixer = pipe->mixer_left;
 	if (!mixer)
 		return -EINVAL;

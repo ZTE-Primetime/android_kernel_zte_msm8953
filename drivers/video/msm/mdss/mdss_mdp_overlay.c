@@ -48,6 +48,12 @@
 
 #define BUF_POOL_SIZE 32
 
+#if defined(CONFIG_BOARD_PEONY)
+#ifdef ZTE_FASTMMI_MANUFACTURING_VERSION
+int error_state;
+#endif
+#endif
+
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
@@ -1753,6 +1759,9 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *sctl;
 	int rc = 0;
+
+	l_roi = (struct mdss_rect) {0, 0, 0, 0};
+	r_roi = (struct mdss_rect) {0, 0, 0, 0};
 
 	pr_debug("fb%d switch to mode=%x\n", mfd->index, mode);
 	ATRACE_FUNC();
@@ -4145,8 +4154,10 @@ static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
 	pr_debug("update scale = %d, min_lvl = %d\n", mfd->bl_scale,
 							mfd->bl_min_lvl);
 
-	/* update current backlight to use new scaling*/
-	mdss_fb_set_backlight(mfd, curr_bl);
+	/* Update current backlight to use new scaling, if it is not zero */
+	if (curr_bl)
+		mdss_fb_set_backlight(mfd, curr_bl);
+
 	mutex_unlock(&mfd->bl_lock);
 	return ret;
 }
@@ -5111,6 +5122,11 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 panel_on:
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("Failed to turn on fb%d\n", mfd->index);
+#if defined(CONFIG_BOARD_PEONY)
+#ifdef ZTE_FASTMMI_MANUFACTURING_VERSION
+		error_state = -1;
+#endif
+#endif
 		mdss_mdp_overlay_off(mfd);
 		goto end;
 	}
@@ -5909,7 +5925,7 @@ static int mdss_mdp_scaler_lut_init(struct mdss_data_type *mdata,
 		struct mdp_scale_luts_info *lut_tbl)
 {
 	struct mdss_mdp_qseed3_lut_tbl *qseed3_lut_tbl;
-	int ret;
+	int ret = 0;
 
 	if (!mdata->scaler_off)
 		return -EFAULT;

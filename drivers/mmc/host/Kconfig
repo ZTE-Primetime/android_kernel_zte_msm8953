@@ -762,6 +762,12 @@ config MMC_SUNXI
 	  This selects support for the SD/MMC Host Controller on
 	  Allwinner sunxi SoCs.
 
+config UFS
+	bool "MMC Or UFS support"
+	default n
+	help
+	  Select Y to enable ufs support.
+
 config MMC_CQ_HCI
 	tristate "Command Queue Support"
 	depends on HAS_DMA

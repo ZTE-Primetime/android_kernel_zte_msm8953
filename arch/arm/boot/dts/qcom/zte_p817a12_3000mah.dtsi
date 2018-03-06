@@ -1,0 +1,49 @@
+
+qcom,zte_p817a12_3000mah {
+	/* #2959928_ZTE_P817A12_3000mAh_averaged_MasterSlave_Jun27th2017*/
+	qcom,max-voltage-uv = <4400000>;
+	qcom,nom-batt-capacity-mah = <3000>;
+	qcom,batt-id-kohm = <0>;
+	qcom,battery-beta = <3435>;
+	qcom,battery-type = "ZTE_BATTERY_DATA_ID_1";
+	qcom,chg-rslow-comp-c1 = <3659099>;
+	qcom,chg-rslow-comp-c2 = <5952817>;
+	qcom,chg-rs-to-rslow = <593345>;
+	qcom,chg-rslow-comp-thr = <0xB1>;
+	qcom,checksum = <0x06CA>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.16";
+	qcom,fg-profile-data = [
+		 EB 83 3A 7D
+		 64 81 CB 77
+		 59 83 59 65
+		 61 82 05 8D
+		 0C 82 A7 99
+		 14 BC F3 C3
+		 5B 10 04 88
+		 CD 7D C0 81
+		 36 7C 4F 83
+		 08 6B 6D 78
+		 22 86 26 82
+		 45 9A 81 BD
+		 BE CA 59 0E
+		 E5 0B 52 5B
+		 14 70 71 FD
+		 10 44 9D 3D
+		 DE 3B 00 00
+		 9D 45 B1 30
+		 3E 2D 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 04 69 42 68
+		 ED 53 8A 81
+		 B1 74 8C 68
+		 56 63 58 80
+		 C8 6F 18 63
+		 18 80 73 C0
+		 0F 6D 60 A3
+		 5D A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};

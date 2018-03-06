@@ -332,7 +332,7 @@
 			"WSA_SPK OUT", "VDD_WSA_SWITCH",
 			"SpkrMono WSA_IN", "WSA_SPK OUT";
 
-		qcom,hdmi-dba-codec-rx;
+		/* qcom,hdmi-dba-codec-rx; */
 
 		qcom,msm-gpios =
 			"pri_i2s",

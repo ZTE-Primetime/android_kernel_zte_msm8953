@@ -40,6 +40,12 @@
 #define TI_STS_9_REG		0x9
 #define TI_INTS_STATUS		BIT(4)
 
+#define TI_STS_8_CMD_SHIFT 4
+#define TI_STS_8_CMD  (0x03 << TI_STS_8_CMD_SHIFT)
+#define TI_STS_9_ATTACH_SHIFT 6
+#define TI_STS_9_ATTACH  (0x03 << TI_STS_9_ATTACH_SHIFT)
+#define TI_STS_9_CC  0x20
+
 static bool disable_on_suspend;
 module_param(disable_on_suspend , bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(disable_on_suspend,
@@ -54,6 +60,7 @@ struct ti_usb_type_c {
 	u8			status_9_reg;
 	int			enb_gpio;
 	int			enb_gpio_polarity;
+	bool			id_notify;
 	struct regulator	*i2c_1p8;
 };
 static struct ti_usb_type_c *ti_usb;
@@ -63,6 +70,8 @@ static int tiusb_read_regdata(struct i2c_client *i2c)
 	int rc;
 	uint16_t saddr = i2c->addr;
 	u8 attach_state, mask = TI_INTS_ATTACH_MASK;
+	int ufp_mode = 0;
+	int otg_state = 0;
 
 	rc = i2c_smbus_read_byte_data(i2c, TI_STS_8_REG);
 	if (rc < 0)
@@ -79,7 +88,7 @@ static int tiusb_read_regdata(struct i2c_client *i2c)
 	if (rc < 0)
 		return -EIO;
 
-	dev_dbg(&i2c->dev, "i2c read from 0x%x-[%x %x]\n", saddr,
+	dev_dbg(&i2c->dev, "i2c read from 0x%x-[0x%x 0x%x]\n", saddr,
 				ti_usb->status_8_reg, ti_usb->status_9_reg);
 	if (!(ti_usb->status_9_reg & TI_INTS_STATUS)) {
 		dev_err(&i2c->dev, "intr_status is 0!, ignore interrupt\n");
@@ -90,7 +99,82 @@ static int tiusb_read_regdata(struct i2c_client *i2c)
 	attach_state = ti_usb->status_9_reg & mask;
 	ti_usb->attach_state = attach_state >> find_first_bit((void *)&mask, 8);
 
+	switch ((ti_usb->status_9_reg & TI_STS_9_ATTACH) >> TI_STS_9_ATTACH_SHIFT) {
+	case 0x00:
+		dev_info(&ti_usb->client->dev, "REG9:Not attached---\n");
+		return 0;
+	case 0x01:
+		dev_info(&ti_usb->client->dev, "REG9:Attached.SRC(DFP)+++\n");
+		otg_state = 1;
+		break;
+	case 0x02:
+		dev_info(&ti_usb->client->dev, "REG9:Attached.SNK(UFP)+++\n");
+		ufp_mode = 1;
+		break;
+	case 0x03:
+		dev_info(&ti_usb->client->dev, "REG9:Attached to an accessory+++\n");
+		otg_state = 1;
+		break;
+	}
+
+	dev_info(&ti_usb->client->dev, "REG9:%s connected\n",
+		(ti_usb->status_9_reg & TI_STS_9_CC) ? "CC2(default)" : "CC1");
+
+	if (ufp_mode) {
+		switch ((ti_usb->status_8_reg & TI_STS_8_CMD) >> TI_STS_8_CMD_SHIFT) {
+		case 0x00:
+			dev_info(&ti_usb->client->dev, "REG8-CMD:Default(500mA)\n");
+			break;
+		case 0x01:
+			dev_info(&ti_usb->client->dev, "REG8-CMD:Medium(1.5A)\n");
+			break;
+		case 0x02:
+			dev_info(&ti_usb->client->dev, "REG8-CMD:Charge through accessory-500mA\n");
+			break;
+		case 0x03:
+			dev_info(&ti_usb->client->dev, "REG8-CMD:High(3A)\n");
+			break;
+		}
+	}
+
+	if (ti_usb->id_notify && ti_usb->usb_psy) {
+		dev_info(&ti_usb->client->dev, "setting usb psy OTG = %d\n", otg_state);
+		power_supply_set_usb_otg(ti_usb->usb_psy, !!otg_state);
+	}
+
 	return rc;
+}
+
+static int tiusb_read_deviceid(struct i2c_client *i2c)
+{
+	int rc;
+	char device_id[9] = {0,};
+	uint16_t saddr = i2c->addr;
+
+	struct i2c_msg msgs[] = {
+		{
+			.addr  = saddr,
+			.flags = I2C_M_RD,
+			.len   = 8,/*reg 0x00~0x07 for device id, default 023BSUT\0*/
+			.buf   = (u8 *)device_id,
+		}
+	};
+
+	rc = i2c_transfer(i2c->adapter, msgs, 1);
+	if (rc < 0) {
+		/* i2c read may fail if device not enabled or not present */
+		dev_err(&i2c->dev, "i2c read from 0x%x failed %d\n", saddr, rc);
+		return -ENXIO;
+	}
+
+	dev_dbg(&i2c->dev, "%s", device_id);
+
+	if (strncmp("023BSUT", device_id, 8)) {
+		dev_err(&i2c->dev, "The chip is not TUSB320 at 0x%x(%s)\n", saddr, device_id);
+		return -ENXIO;
+	}
+
+	return 0;
 }
 
 static int tiusb_update_power_supply(struct power_supply *psy, int limit)
@@ -254,6 +338,8 @@ static int tiusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto out;
 	}
 
+	ti_usb->id_notify = of_property_read_bool(np, "id,notify");
+
 	/* override with module-param */
 	if (!disable_on_suspend)
 		disable_on_suspend = of_property_read_bool(np,
@@ -275,10 +361,8 @@ static int tiusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto gpio_disable;
 	}
 
-	ret = tiusb_read_regdata(i2c);
-	if (ret == -EIO) {
-		dev_err(&ti_usb->client->dev, "i2c access failed\n");
-		ret = -EPROBE_DEFER;
+	ret = tiusb_read_deviceid(i2c);
+	if (ret) {
 		goto ldo_disable;
 	}
 

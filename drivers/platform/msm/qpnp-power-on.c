@@ -29,6 +29,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/power-on.h>
+#include <linux/reboot.h>
+#include <soc/qcom/socinfo.h>
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -218,7 +220,61 @@ struct qpnp_pon {
 	u8			warm_reset_reason2;
 	bool			is_spon;
 	bool			store_hard_reset_reason;
+	struct timer_list timer;
+	struct work_struct pwrkey_poweroff_work;
+	struct work_struct pwrkey_release_work;
+	struct delayed_work check_pwrkey_work;
 };
+
+#define POWER_KEY_CHECK_MS 1000
+extern int socinfo_get_ftm_flag(void);
+
+static void pwrkey_timer(unsigned long data)
+{
+	struct qpnp_pon *pon = (struct qpnp_pon *)data;
+
+	schedule_work(&pon->pwrkey_poweroff_work);
+}
+
+static void pwrkey_poweroff(struct work_struct *work)
+{
+	pr_info("%s: power key long pressed, trigger reboot\n", __func__);
+	kernel_restart("LONGPRESS");
+}
+
+static void pwrkey_release(struct work_struct *work)
+{
+	struct qpnp_pon *pon = container_of(work,
+				struct qpnp_pon, pwrkey_release_work);
+
+	cancel_delayed_work_sync(&pon->check_pwrkey_work);
+}
+
+static void check_pwrkey(struct work_struct *work)
+{
+	u8 pon_rt_sts = 0;
+	int rc = 0;
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_pon *pon = container_of(dwork,
+				struct qpnp_pon, check_pwrkey_work);
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_RT_STS(pon), &pon_rt_sts, 1);
+	if (rc) {
+		pr_err("%s, Unable to read PON RT status\n", __func__);
+		del_timer(&pon->timer);
+		return;
+	}
+	if (pon_rt_sts & QPNP_PON_KPDPWR_N_SET) {
+		schedule_delayed_work(&pon->check_pwrkey_work,
+				  round_jiffies_relative(msecs_to_jiffies
+							 (POWER_KEY_CHECK_MS)));
+		pr_emerg("%s, power key not released, check it again\n", __func__);
+	} else {
+		del_timer(&pon->timer);
+		pr_emerg("%s, power key not pressed, delete timer of power key\n", __func__);
+	}
+}
 
 static struct qpnp_pon *sys_reset_dev;
 static DEFINE_SPINLOCK(spon_list_slock);
@@ -534,7 +590,7 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 
 	if (!pon)
 		return -ENODEV;
-
+	dev_emerg(&pon->spmi->dev, "pwer_off_type:%d:\n", (int)type);
 	rc = qpnp_pon_reset_config(pon, type);
 	if (rc) {
 		dev_err(&pon->spmi->dev, "Error configuring main PON rc: %d\n",
@@ -811,20 +867,45 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	return 0;
 }
 
+/* ============== pwrkey crash ========================== */
+static int pwrkey_crash = 0;
+module_param(pwrkey_crash, int, 0644);
+extern int boot_mode_is_charger(void);
 static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
 {
 	int rc;
 	struct qpnp_pon *pon = _pon;
+	u8 pon_rt_sts = 0;
 
 	rc = qpnp_pon_input_dispatch(pon, PON_KPDPWR);
 	if (rc)
 		dev_err(&pon->spmi->dev, "Unable to send input event\n");
 
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_RT_STS(pon), &pon_rt_sts, 1);
+	if (pon_rt_sts & QPNP_PON_KPDPWR_N_SET) {
+		if (socinfo_get_ftm_flag() == 1 || socinfo_get_charger_flag() == 1) {
+			pon->timer.expires = jiffies + 3 * HZ;
+			pr_info("%s: FTM mode,start 3s timer for reboot\n", __func__);
+		} else {
+			pon->timer.expires = jiffies + 10 * HZ;
+			pr_info("%s: Normal mode,start 8s timer for reboot\n", __func__);
+		}
+		mod_timer(&pon->timer, pon->timer.expires);
+		schedule_delayed_work(&pon->check_pwrkey_work,
+			round_jiffies_relative(msecs_to_jiffies(POWER_KEY_CHECK_MS)));
+		pr_info("power key pressed\n");
+	} else {
+		del_timer(&pon->timer);
+		schedule_work(&pon->pwrkey_release_work);
+		pr_info("power key released\n");
+	}
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t qpnp_kpdpwr_bark_irq(int irq, void *_pon)
 {
+	pr_info("power key bark trigger\n");
 	return IRQ_HANDLED;
 }
 
@@ -849,6 +930,7 @@ static irqreturn_t qpnp_cblpwr_irq(int irq, void *_pon)
 	int rc;
 	struct qpnp_pon *pon = _pon;
 
+	pr_info("%s qpnp_cblpwr_irq  trigger\n", __func__);
 	rc = qpnp_pon_input_dispatch(pon, PON_CBLPWR);
 	if (rc)
 		dev_err(&pon->spmi->dev, "Unable to send input event\n");
@@ -972,6 +1054,7 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 	/* disable the bark interrupt */
 	disable_irq_nosync(irq);
 
+	pr_info("ZTE_PM resin_bark\n");
 	cfg = qpnp_get_cfg(pon, PON_RESIN);
 	if (!cfg) {
 		dev_err(&pon->spmi->dev, "Invalid config pointer\n");
@@ -2175,6 +2258,13 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, pon);
 
 	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
+
+	init_timer(&pon->timer);
+	pon->timer.data = (unsigned long)pon;
+	pon->timer.function = pwrkey_timer;
+	INIT_WORK(&pon->pwrkey_poweroff_work, pwrkey_poweroff);
+	INIT_WORK(&pon->pwrkey_release_work, pwrkey_release);
+	INIT_DELAYED_WORK(&pon->check_pwrkey_work, check_pwrkey);
 
 	/* register the PON configurations */
 	rc = qpnp_pon_config_init(pon);

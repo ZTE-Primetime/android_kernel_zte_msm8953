@@ -13,6 +13,8 @@
 
 #include "msm8917-pinctrl.dtsi"
 #include "msm8917-camera-sensor-mtp.dtsi"
+#include "dsi-panel-zte-dijing-nt35521sh-auo-5p5-720p-video.dtsi"
+#include "dsi-panel-zte-helitech-ili9881c-cpt-5p5-720p-video.dtsi"
 
 &spi_3 { /* BLSP1 QUP3 */
 	spi-max-frequency = <16000000>;
@@ -39,49 +41,24 @@
 };
 
 &soc {
-	gpio_keys {
-		compatible = "gpio-keys";
-		input-name = "gpio-keys";
-		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
-		pinctrl-0 = <&gpio_key_active>;
-		pinctrl-1 = <&gpio_key_suspend>;
 
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&tlmm 128 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x210>;
-			debounce-interval = <15>;
-		};
+	goodix_fp@0 {
+			status = "ok";
+			reg = <0>;
+			compatible = "goodix,fingerprint";
+			spi-max-frequency = <4800000>;
+			pinctrl-0 = <&goodix_reset_active &goodix_irq_active>;
+			pinctrl-1 = <&goodix_reset_sleep &goodix_irq_sleep>;
+			goodix,gpio_reset = <&tlmm 47 0>;
+			goodix,gpio_irq = <&tlmm 48 0>;
+			goodix,gpio_pwr = <&tlmm 124 0>;
+			clock-names = "iface_clk", "core_clk";
 
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&tlmm 127 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			debounce-interval = <15>;
-		};
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+				<&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
 
-		vol_up {
-			label = "volume_up";
-			gpios = <&tlmm 91 0x1>;
-			linux,input-type = <1>;
-			linux,code = <115>;
-			debounce-interval = <15>;
-		};
-	};
+	    };
 
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		vcc_ana-supply = <&pm8917_l10>;
-		vcc_dig-supply = <&pm8917_l5>;
-		qcom,afe-load = <50000>;
-		qcom,afe-vtg-min = <2850000>;
-		qcom,afe-vtg-max = <2850000>;
-		qcom,dig-load = <15000>;
-		qcom,dig-vtg-min = <1800000>;
-		qcom,dig-vtg-max = <1800000>;
-	};
 };
 
 &flash_led {
@@ -122,16 +99,39 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_truly_720_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_ili9881c_cpt_720p_vid>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 
-	qcom,platform-te-gpio = <&tlmm 24 0>;
+	//qcom,platform-te-gpio = <&tlmm 24 0>;
 	qcom,platform-reset-gpio = <&tlmm 60 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
+	//qcom,platform-bklight-en-gpio = <&tlmm 98 0>;
+	//zte,lcd-5v-vsp-enable-gpio = <&tlmm 99 0>;
+	//zte,lcd-5v-vsn-enable-gpio = <&tlmm 98 0>;
 };
 
+&dsi_dijing_nt35521_cmi_5p5_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,mdss-dsi-pan-enable-dynamic-fps;
+	//qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+&dsi_ili9881c_cpt_720p_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,mdss-dsi-pan-enable-dynamic-fps;
+	//qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+&dsi_dijing_nt35521sh_auo_5p5_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,mdss-dsi-pan-enable-dynamic-fps;
+	//qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+&dsi_helitech_ili9881c_cpt_5p5_720p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,mdss-dsi-pan-enable-dynamic-fps;
+	//qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+#if 0
 &dsi_truly_720_vid {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
@@ -144,7 +144,7 @@
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <2 2 2 2 2 2>;
 };
-
+#endif
 &sdhc_1 {
 	/* device core power supply */
 	vdd-supply = <&pm8917_l8>;
@@ -194,7 +194,7 @@
 		1 &intc 0 221 0
 		2 &tlmm 67 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 67 0x1>;
+	cd-gpios = <&tlmm 67 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;

@@ -7,7 +7,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
 
@@ -38,8 +38,8 @@
 		pinctrl-2 = <&ts_release>;
 	};
 };
-
-&i2c_5 { /* BLSP2 QUP1 (NFC) */
+/*
+&i2c_5 { // BLSP2 QUP1 (NFC)
 	nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
@@ -58,57 +58,34 @@
 		clock-names = "ref_clk";
 	};
 };
+*/
+
+&i2c_8 { /* BLSP2 QUP3 */
+	ak4375@10 {
+		compatible = "ak4375";
+		reg = <0x10>;
+		akm,cdc-reset-gpio = <&tlmm 50 0x00>;
+		akm,cdc-ldo-gpio =  <&pm8953_gpios 1 0x00>;
+		vcc_i2c-supply = <&pm8953_l5>;
+	};
+};
+
+&i2c_2 {
+	/* Parallel-charger configuration */
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-en-pin-polarity = <1>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+	};
+};
 
 &pm8953_l10 {
 	regulator-max-microvolt = <2850000>;
 };
-
-&soc {
-	gpio_keys {
-		compatible = "gpio-keys";
-		input-name = "gpio-keys";
-		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
-		pinctrl-0 = <&gpio_key_active>;
-		pinctrl-1 = <&gpio_key_suspend>;
-
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&tlmm 87 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x210>;
-			debounce-interval = <15>;
-		};
-
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&tlmm 86 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			debounce-interval = <15>;
-		};
-
-		vol_up {
-			label = "volume_up";
-			gpios = <&tlmm 85 0x1>;
-			linux,input-type = <1>;
-			linux,code = <115>;
-			debounce-interval = <15>;
-		};
-	};
-
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		vcc_ana-supply = <&pm8953_l10>;
-		vcc_dig-supply = <&pm8953_l5>;
-		qcom,afe-load = <50000>;
-		qcom,afe-vtg-min = <2850000>;
-		qcom,afe-vtg-max = <2850000>;
-		qcom,dig-load = <15000>;
-		qcom,dig-vtg-min = <1800000>;
-		qcom,dig-vtg-max = <1800000>;
-	};
-};
-
+/* comment out for using erm type
 &pmi_haptic{
 	qcom,actuator-type = "lra";
 	qcom,lra-auto-res-mode="qwd";
@@ -116,7 +93,22 @@
 	qcom,lra-res-cal-period = <0>;
 	qcom,wave-play-rate-us = <4165>;
 };
+*/
+&soc {
 
+	/*for p853a13 use goodix 3208 module*/
+	goodix_gf5126@1 {
+		compatible = "goodix,fingerprint";
+		//reg = <0x1>;
+		spi-max-frequency = <4800000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <48 0x0>;
+		goodix,gpio_pwr = <&tlmm 131 0>;
+		goodix,gpio_reset = <&tlmm 63 0>;
+		goodix,gpio_id = <&tlmm 47 0>;
+		goodix,gpio_irq = <&tlmm 48 0>;
+	};
+};
 &wled {
 	qcom,cons-sync-write-delay-us = <1000>;
 };
@@ -238,7 +230,7 @@
 		1 &intc 0 221 0
 		2 &tlmm 133 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&tlmm 133 0x1>;
+	cd-gpios = <&tlmm 133 0x0>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
@@ -268,8 +260,8 @@
 
 &pmi8950_charger {
 	qcom,battery-data = <&mtp_batterydata>;
-	qcom,chg-led-sw-controls;
-	qcom,chg-led-support;
+	#qcom,chg-led-sw-controls;
+	#qcom,chg-led-support;
 	qcom,external-typec;
 	qcom,typec-psy-name = "typec";
 };

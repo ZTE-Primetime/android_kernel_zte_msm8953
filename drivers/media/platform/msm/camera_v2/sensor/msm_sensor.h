@@ -61,6 +61,30 @@ struct msm_sensor_fn_t {
 	int (*sensor_power_down)(struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up)(struct msm_sensor_ctrl_t *);
 	int (*sensor_match_id)(struct msm_sensor_ctrl_t *);
+	void (*zte_read_otp)(struct msm_sensor_ctrl_t *);
+	void (*zte_apply_otp)(struct msm_sensor_ctrl_t *);
+};
+
+/*
+* add by lijianjun for s5k4h8
+*/
+typedef struct awb_data_t {
+	unsigned char r_over_gr_l;
+	unsigned char r_over_gr_h;
+	unsigned char b_over_gb_l;
+	unsigned char b_over_gb_h;
+	unsigned char gr_over_gb_l;
+	unsigned char gr_over_gb_h;
+} awb_data_t;
+
+struct otp_struct {
+	uint16_t module_id;
+	uint16_t lens_id;
+	uint16_t production_year;
+	uint16_t production_month;
+	uint16_t production_day;
+	uint8_t lsc[360];
+	struct awb_data_t awb;
 };
 
 struct msm_sensor_ctrl_t {
@@ -88,8 +112,15 @@ struct msm_sensor_ctrl_t {
 	enum msm_camera_stream_type_t camera_stream_type;
 	uint32_t set_mclk_23880000;
 	uint8_t is_csid_tg_mode;
+	uint8_t zte_insensor_otp;
+	/*
+	*add by lijianjun for insensor_otp
+	*/
+	struct otp_struct otp_ptr;
 };
 
+extern struct msm_camera_i2c_reg_array imx258_spc_config[126];/*eeprom spc*/
+extern int get_spc_flag;/*eeprom spc*/
 int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp);
 
 int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl);
@@ -117,6 +148,13 @@ int32_t msm_sensor_get_dt_gpio_set_tbl(struct device_node *of_node,
 int32_t msm_sensor_init_gpio_pin_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,
 	uint16_t gpio_array_size);
+
+/*
+* Add otp for s5k4h8 by lijianjun
+*/
+void zte_read_insensor_otp(struct msm_sensor_ctrl_t *e_ctrl);
+void zte_apply_insensor_otp(struct msm_sensor_ctrl_t *e_ctrl);
+
 #ifdef CONFIG_COMPAT
 long msm_sensor_subdev_fops_ioctl(struct file *file,
 	unsigned int cmd,

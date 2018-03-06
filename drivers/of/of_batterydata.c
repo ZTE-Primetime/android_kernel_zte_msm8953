@@ -336,6 +336,7 @@ struct device_node *of_batterydata_get_best_profile(
 	}
 
 	batt_id_kohm = ret.intval / 1000;
+	pr_info("batt_id_kohm = %d\n", batt_id_kohm);
 
 	/* read battery id range percentage for best profile */
 	rc = of_property_read_u32(batterydata_container_node,
@@ -357,6 +358,7 @@ struct device_node *of_batterydata_get_best_profile(
 		if (batt_type != NULL) {
 			rc = of_property_read_string(node, "qcom,battery-type",
 							&battery_type);
+			pr_info("battery_type = %s\n", battery_type);
 			if (!rc && strcmp(battery_type, batt_type) == 0) {
 				best_node = node;
 				best_id_kohm = batt_id_kohm;
@@ -368,7 +370,9 @@ struct device_node *of_batterydata_get_best_profile(
 							&batt_ids);
 			if (rc)
 				continue;
+			pr_info("batt_ids.num =%d\n", batt_ids.num);
 			for (i = 0; i < batt_ids.num; i++) {
+				pr_info("batt_ids.kohm[%d]=%d\n", i, batt_ids.kohm[i]);
 				delta = abs(batt_ids.kohm[i] - batt_id_kohm);
 				limit = (batt_ids.kohm[i] * id_range_pct) / 100;
 				in_range = (delta <= limit);
@@ -391,7 +395,7 @@ struct device_node *of_batterydata_get_best_profile(
 		pr_err("No battery data found\n");
 		return best_node;
 	}
-
+	pr_info("best_id_kohm = %d\n", best_id_kohm);
 	/* check that profile id is in range of the measured batt_id */
 	if (abs(best_id_kohm - batt_id_kohm) >
 			((best_id_kohm * id_range_pct) / 100)) {

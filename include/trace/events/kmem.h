@@ -220,6 +220,43 @@ TRACE_EVENT(mm_page_alloc,
 		show_gfp_flags(__entry->gfp_flags))
 );
 
+TRACE_EVENT(mm_page_alloc_failed,
+
+	TP_PROTO(int idx, unsigned int order, unsigned long mark,
+			int flags, long cma, long freepages, long min),
+
+	TP_ARGS(idx, order, mark, flags, cma, freepages, min),
+
+	TP_STRUCT__entry(
+		__field(int,	idx)
+		__field(unsigned int,	order)
+		__field(unsigned long,	mark)
+		__field(int,	flags)
+		__field(long,	cma)
+		__field(long, freepages)
+		__field(long, min)
+	),
+
+	TP_fast_assign(
+		__entry->idx		= idx;
+		__entry->order		= order;
+		__entry->mark		= mark;
+		__entry->flags		= flags;
+		__entry->cma		= cma;
+		__entry->freepages	= freepages;
+		__entry->min		= min;
+	),
+
+	TP_printk("idx=%d order=%X mark=%lu flags=%d cma=%lu freepages=%lu min/reserve=%lu",
+		__entry->idx,
+		__entry->order,
+		__entry->mark,
+		__entry->flags,
+		__entry->cma,
+		__entry->freepages,
+		__entry->min)
+);
+
 DECLARE_EVENT_CLASS(mm_page,
 
 	TP_PROTO(struct page *page, unsigned int order, int migratetype),

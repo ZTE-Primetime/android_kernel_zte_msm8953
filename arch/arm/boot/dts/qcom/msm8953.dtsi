@@ -34,7 +34,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -93,6 +93,26 @@
 			label = "cont_splash_mem";
 		};
 
+		/*add for vlog, by ZTE RIL Platform team */
+		vlog_mem: ap_share_region@8fd00000 {
+			compatible = "removed_vlog_memory";
+			no-map;
+			reg = <0 0x8fd00000 0 0x100000>;
+		};
+
+		/*ZTE_BOOT 20150923*/
+		ramoops_men: ramoops_region@8fe00000 {
+			compatible = "removed_ramoops_memory";
+			no-map;
+			reg = <0 0x8fe00000 0 0x1e0000>;
+		};
+
+		secure_channel_men: secure_channel_region@8ffe0000 {
+			compatible = "removed_secure_channel";
+			no-map;
+			reg = <0 0x8ffe0000 0 0x20000>;
+		};
+
 		gpu_mem: gpu_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -120,6 +140,7 @@
 		i2c2 = &i2c_2;
 		i2c3 = &i2c_3;
 		i2c5 = &i2c_5;
+		i2c8 = &i2c_8;
 		spi3 = &spi_3;
 	};
 
@@ -547,7 +568,7 @@
 			qcom,mitigation-freq-khz = <1689600>;
 			qcom,vph-high-threshold-uv = <3500000>;
 			qcom,vph-low-threshold-uv = <3200000>;
-			qcom,soc-low-threshold = <10>;
+			qcom,soc-low-threshold = <0>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
@@ -676,6 +697,7 @@
 		qcom,bam-consumer-pipe-index = <8>;
 		qcom,bam-producer-pipe-index = <9>;
 		qcom,master-id = <86>;
+		status = "disabled";
 	};
 
 	i2c_2: i2c@78b6000 { /* BLSP1 QUP2 */
@@ -723,6 +745,13 @@
 			qcom,enable-load = <0>;
 			qcom,disable-load = <0>;
 		};
+		led_aw2013:aw2013@45 {
+			compatible = "aw2013";
+			reg = <0x45>;
+			status = "ok";
+			aw2013_mode = < 7 >;
+			aw2013_power-supply = <&pm8953_l10>;
+		};
 	};
 
 	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
@@ -748,7 +777,7 @@
 		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
 			<&dma_blsp1 9 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-		status = "disabled";
+		status = "okay";
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
@@ -773,6 +802,31 @@
 		qcom,master-id = <84>;
 		dmas = <&dma_blsp2 4 64 0x20000020 0x20>,
 			<&dma_blsp2 5 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+	};
+
+	i2c_8: i2c@7af8000 { /* BLSP2 QUP3 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x7af8000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 302 0>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp2_qup4_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_8_active>;
+		pinctrl-1 = <&i2c_8_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,master-id = <84>;
+		dmas = <&dma_blsp2 10 64 0x20000020 0x20>,
+			<&dma_blsp2 11 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
 	};
 
@@ -1162,6 +1216,42 @@
 			compatible = "qcom,msm-imem-dload-type";
 			reg = <0x18 4>;
 		};
+
+		efs_golden_copy@50 {
+			compatible = "qcom,msm-imem-efs-golden-copy";
+			reg = <0x50 8>;
+		};
+
+		hw_ver_id@ac {
+			compatible = "zte,imem-hw-ver-id";
+			reg = <0xa0 4>;
+		};
+
+		zte_sw_ver@bc {
+			compatible = "qcom,msm-imem-zte_sw_ver";
+			reg = <0xbc 4>;
+		};
+
+		sd_dump_mode@74 {
+			compatible = "qcom,msm-imem-sd_dump_mode";
+			reg = <0x74 4>;
+		};
+
+		vlog_memory_cookie@B0 {
+			compatible = "qcom,msm-imem-vlog_memory_cookie";
+			reg = <0xB0 4>;
+		};
+
+		vlog_memory_addr@B4 {
+			compatible = "qcom,msm-imem-vlog_memory_addr";
+			reg = <0xB4 4>;
+		};
+
+		vlog_memory_size@B8 {
+			compatible = "qcom,msm-imem-vlog_memory_size";
+			reg = <0xB8 4>;
+		};
+
 
 		restart_reason@65c {
 			compatible = "qcom,msm-imem-restart_reason";
@@ -1606,9 +1696,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84A00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -2024,10 +2114,10 @@
 		qcom,usb-dbm = <&dbm_1p5>;
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
-					<61 512 0 0>,
-					<61 512 240000 800000>;
+					<61 512 0 0>, <87 512 0 0>,
+					<61 512 240000 800000>, <87 512 240000 800000>;
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 
@@ -2290,6 +2380,18 @@
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 213 11028>;
+	};
+
+	/*ZTE_BOOT 20150923*/
+	qcom,ramoops@8fe00000{
+		compatible = "qcom,ramoops";
+		memory-region = <&ramoops_men>;
+		mem_type = <0>;
+		dump_oops = <1>;
+		size =  <0x0 0x100000>,/*console size*/
+			<0x0 0x4000>,/*record size*/
+			<0x0 0x20000>,/*ftrace size*/
+			<0x0 0x40000>;/*pmsg size*/
 	};
 };
 

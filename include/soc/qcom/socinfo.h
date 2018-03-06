@@ -22,6 +22,46 @@
 #include <linux/of.h>
 
 #include <asm/cputype.h>
+
+/*add by ZTE_BOOT*/
+#ifdef CONFIG_ZTE_BOOT_MODE
+
+#define ANDROID_BOOT_MODE              "androidboot.mode="
+#define ANDROID_BOOT_MODE_NORMAL       "normal"
+#define ANDROID_BOOT_MODE_FTM          "ftm"
+#define ANDROID_BOOT_MODE_RECOVERY     "recovery"
+#define ANDROID_BOOT_MODE_FFBM         "ffbm"
+#define ANDROID_BOOT_MODE_CHARGER         "charger"
+
+
+#define MAGIC_NUM_FTM_MODE          0x6D6D5446 /*FTMM*/
+#define MAGIC_NUM_NON_FTM_MODE      0x4D54464E /*NFTM*/
+
+/*
+ * Boot mode definition
+ */
+enum {
+	ENUM_BOOT_MODE_NORMAL            = 0,
+	ENUM_BOOT_MODE_FTM               = 1,
+	ENUM_BOOT_MODE_RTC_ALARM         = 2,
+	ENUM_BOOT_MODE_CHARGER           = 3,      //ZTE charge
+	ENUM_BOOT_MODE_RECOVERY          = 4,
+	ENUM_BOOT_MODE_FFBM              = 5,      //ZTE FFBM
+	ENUM_BOOT_MODE_UNKNOWN,
+	ENUM_BOOT_MODE_MAX
+};
+
+void socinfo_set_boot_mode(int boot_mode);
+int socinfo_get_ftm_flag(void);
+int socinfo_get_ffbm_flag(void);
+int socinfo_get_charger_flag(void);
+
+void socinfo_set_hw_ver(const char *ver);
+#endif
+#if defined(CONFIG_ZTE_TABLET)
+void socinfo_sync_sysfs_zte_sw_ver(const char *sw_ver);
+#endif
+
 /*
  * SOC version type with major number in the upper 16 bits and minor
  * number in the lower 16 bits.  For example:
@@ -243,5 +283,11 @@ uint32_t socinfo_get_serial_number(void);
 enum pmic_model socinfo_get_pmic_model(void);
 uint32_t socinfo_get_pmic_die_revision(void);
 int __init socinfo_init(void) __must_check;
+
+/*
+ * Support for PV mode for hall
+ */
+void socinfo_set_pv_flag(int val);
+int socinfo_get_pv_flag(void);
 
 #endif

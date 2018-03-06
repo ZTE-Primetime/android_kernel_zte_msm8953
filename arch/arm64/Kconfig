@@ -312,6 +312,7 @@ config ARCH_MSM8953
 config ARCH_MSM8937
 	bool "Enable Support for Qualcomm Technologies Inc MSM8937"
 	depends on ARCH_MSM
+	select ZTE_BOOT_MODE
 	help
 	  This enables support for the MSM8937 chipset. If you don't
 	  know what to do here, say N
@@ -338,6 +339,94 @@ config ARCH_MSM8994_V1_TLBI_WA
 	  workaround is required for MSM8994 V1 revision where the
 	  [39:38] bits of VA are tied to zero and due to which TLBI
 	  operations with VA or ASID will not work.
+
+endmenu
+
+config ZTE_BOOT_MODE
+	depends on ARCH_MSM8917
+	bool "ZTE BOOT MODE"
+	default n
+	help
+          Support for boot mode
+
+config ZTE_PIL_AUTH_ERROR_DETECTION
+	depends on ARCH_MSM8917
+	bool "ZTE PIL AUTH ERROR DETECTION"
+	default n
+	help
+	  When authorization of PIL images is failed, the system
+	  will enter into UNAUTH mode to show related error message.
+
+config ZTE_TABLET
+	depends on ARCH_MSM8937
+	bool "ZTE TABLET"
+	default n
+	help
+	  Support for ZTE TABLET
+
+menu "ZTE Board Selection"
+
+config BOARD_FINANCIER
+	depends on ARCH_MSM8917
+	bool "ZTE FINANCIER"
+	help
+	  Support for ZTE MSM8917 FINANCIER device.
+
+config BOARD_PEONY
+	depends on ARCH_MSM8917
+	bool "ZTE PEONY"
+	help
+	  Support for ZTE MSM8917 PEONY device.
+
+config BOARD_PROLINE
+	depends on ARCH_MSM8917
+	bool "ZTE PROLINE"
+	help
+	  Support for ZTE MSM8917 PROLINE device.
+
+config BOARD_STOLLEN
+	depends on ARCH_MSM8940
+	bool "ZTE STOLLEN"
+	help
+	  Support for ZTE MSM8940 STOLLEN device.
+
+config BOARD_BOLTON
+	depends on ARCH_MSM8940
+	bool "ZTE BOLTON"
+	help
+	  Support for ZTE MSM8940 BOLTON device.
+
+config BOARD_CROCUS
+	depends on ARCH_MSM8940
+	bool "ZTE CROCUS"
+	help
+	  Support for ZTE MSM8940 CROCUS device.
+
+config BOARD_VIOLET
+	depends on ARCH_MSM8940
+	bool "ZTE VIOLET"
+	help
+	  Support for ZTE MSM8940 VIOLET device.
+
+config BOARD_FLORIST
+	depends on ARCH_MSM8953
+	bool "ZTE FLORIST"
+	select SND_SOC_AK4375
+	help
+	  Support for ZTE MSM8953 FLORIST device.
+	  Audio select AK4375 for USA project.
+
+config BOARD_WARP8
+	depends on ARCH_MSM8920
+	bool "ZTE WARP8"
+	help
+	  Support for ZTE MSM8920 WARP8 device.
+
+config BOARD_PRIMROSE
+	depends on ARCH_MSM8953
+	bool "ZTE PRIMROSE"
+	help
+	  Support for ZTE MSM8953 PRIMROSE device.
 
 endmenu
 

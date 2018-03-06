@@ -406,6 +406,9 @@ struct mipi_panel_info {
 	char lp11_init;
 	u32  init_delay;
 	u32  post_init_delay;
+
+	bool zte_enalbe_12_bit_bl_ctl;
+	bool zte_enable_51reg_inverse;
 };
 
 struct edp_panel_info {

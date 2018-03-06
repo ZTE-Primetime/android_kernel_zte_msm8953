@@ -47,5 +47,6 @@ struct msm_eeprom_ctrl_t {
 	struct msm_eeprom_memory_block_t cal_data;
 	uint8_t is_supported;
 };
+int zte_eeprom_read_ready(struct msm_eeprom_ctrl_t *e_ctrl);
 
 #endif

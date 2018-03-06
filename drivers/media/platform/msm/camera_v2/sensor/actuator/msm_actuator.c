@@ -47,7 +47,7 @@ static struct msm_actuator *actuators[] = {
 	&msm_hvcm_actuator_table,
 	&msm_bivcm_actuator_table,
 };
-
+extern int s5k3l8_actuator_flag;/*eeprom spc*/
 static int32_t msm_actuator_piezo_set_default_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_move_params_t *move_params)
@@ -102,16 +102,30 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 
 	for (i = 0; i < size; i++) {
 		if (write_arr[i].reg_write_type == MSM_ACTUATOR_WRITE_DAC) {
+#if defined(CONFIG_BOARD_FLORIST)
+		if (s5k3l8_actuator_flag == 1) {
 			value = (next_lens_position <<
 				write_arr[i].data_shift) |
 				((hw_dword & write_arr[i].hw_mask) >>
 				write_arr[i].hw_shift);
-
+		} else {
+			value = next_lens_position;
+		}
+#else
+			value = (next_lens_position <<
+				write_arr[i].data_shift) |
+				((hw_dword & write_arr[i].hw_mask) >>
+				write_arr[i].hw_shift);
+#endif
 			if (write_arr[i].reg_addr != 0xFFFF) {
 				i2c_byte1 = write_arr[i].reg_addr;
 				i2c_byte2 = value;
 				if (size != (i+1)) {
+#if defined(CONFIG_BOARD_FLORIST)
+					i2c_byte2 = (value >> write_arr[i].data_shift) & 0xFF;
+#else
 					i2c_byte2 = value & 0xFF;
+#endif
 					CDBG("byte1:0x%x, byte2:0x%x\n",
 						i2c_byte1, i2c_byte2);
 					if (a_ctrl->i2c_tbl_index >
@@ -128,7 +142,11 @@ static void msm_actuator_parse_i2c_params(struct msm_actuator_ctrl_t *a_ctrl,
 					a_ctrl->i2c_tbl_index++;
 					i++;
 					i2c_byte1 = write_arr[i].reg_addr;
+#if defined(CONFIG_BOARD_FLORIST)
+					i2c_byte2 = (value << write_arr[i].data_shift) & 0x80;
+#else
 					i2c_byte2 = (value & 0xFF00) >> 8;
+#endif
 				}
 			} else {
 				i2c_byte1 = (value & 0xFF00) >> 8;

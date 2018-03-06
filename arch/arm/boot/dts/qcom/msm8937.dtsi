@@ -33,7 +33,7 @@
 		other_ext_mem: other_ext_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x85b00000 0x0 0xd00000>;
+			reg = <0x0 0x84A00000 0x0 0x1E00000>;
 		};
 
 		modem_mem: modem_region@0 {
@@ -78,7 +78,7 @@
 		};
 
 		adsp_mem: adsp_region@0 {
-			compatible = "shared-dma-pool";
+			compatible = "removed-dma-pool";
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x400000>;
@@ -88,6 +88,25 @@
 			reg = <0x0 0x90000000 0x0 0x1400000>;
 		};
 
+		/*add for vlog, by ZTE RIL Platform team */
+		vlog_mem: ap_share_region@8fd00000 {
+			compatible = "removed_vlog_memory";
+			no-map;
+			reg = <0 0x8fd00000 0 0x100000>;
+		};
+
+		/*ZTE_BOOT 20150923*/
+		ramoops_men: ramoops_region@8fe00000 {
+			compatible = "removed_ramoops_memory";
+			no-map;
+			reg = <0 0x8fe00000 0 0x1e0000>;
+		};
+
+		secure_channel_men: secure_channel_region@8ffe0000 {
+			compatible = "removed_secure_channel";
+			no-map;
+			reg = <0 0x8ffe0000 0 0x20000>;
+		};
 	};
 
 	aliases {
@@ -453,7 +472,7 @@
 			qcom,mitigation-freq-khz = <998400>;
 			qcom,vph-high-threshold-uv = <3500000>;
 			qcom,vph-low-threshold-uv = <3200000>;
-			qcom,soc-low-threshold = <10>;
+			qcom,soc-low-threshold = <0>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
@@ -514,7 +533,7 @@
 			vdd_io-supply = <&pm8937_l5>;
 			interrupt-parent = <&tlmm>;
 			interrupts = <97 2>;  /* TLMM 97, TRIGGER_FALLING */
-			pericom,enb-gpio = <&tlmm 131 0x1>;	/* active low */
+			pericom,enb-gpio = <&tlmm 131 0x0>;	/* active high */
 			pinctrl-names = "default";
 			pinctrl-0 = <&usbc_int_default>;
 		};
@@ -565,7 +584,7 @@
 		dmas = <&dma_blsp1 8 64 0x20000020 0x20>,
 			<&dma_blsp1 9 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
-		status = "disabled";
+		status = "okay";
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
@@ -1217,9 +1236,50 @@
 			reg = <0x10 8>;
 		};
 
+		pm_count_time@58 {
+			compatible = "qcom,msm-imem-pm-count-time";
+			reg = <0x58 24>;
+		};
+
+		sd_dump_mode@74 {
+			compatible = "qcom,msm-imem-sd_dump_mode";
+			reg = <0x74 4>;
+		};
+
+		vlog_memory_cookie@B0 {
+			compatible = "qcom,msm-imem-vlog_memory_cookie";
+			reg = <0xB0 4>;
+		};
+
+		vlog_memory_addr@B4 {
+			compatible = "qcom,msm-imem-vlog_memory_addr";
+			reg = <0xB4 4>;
+		};
+
+		vlog_memory_size@B8 {
+			compatible = "qcom,msm-imem-vlog_memory_size";
+			reg = <0xB8 4>;
+		};
+
+
 		dload_type@18 {
 			compatible = "qcom,msm-imem-dload-type";
 			reg = <0x18 4>;
+		};
+
+		efs_golden_copy@50 {
+			compatible = "qcom,msm-imem-efs-golden-copy";
+			reg = <0x50 8>;
+		};
+
+		hw_ver_id@ac {
+			compatible = "zte,imem-hw-ver-id";
+			reg = <0xa0 4>;
+		};
+
+		zte_sw_ver@bc {
+			compatible = "qcom,msm-imem-zte_sw_ver";
+			reg = <0xbc 4>;
 		};
 
 		restart_reason@65c {
@@ -1523,9 +1583,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@85b00000 {
+	qcom_seecom: qseecom@84A00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x85b00000 0x800000>;
+		reg = <0x84A00000 0x1900000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1939,6 +1999,17 @@
 		compatible = "qcom,msm-ssc-sensors";
 	};
 
+	/*ZTE_BOOT 20150923*/
+	qcom,ramoops@8fe00000{
+		compatible = "qcom,ramoops";
+		memory-region = <&ramoops_men>;
+		mem_type = <0>;
+		dump_oops = <1>;
+		size =  <0x0 0x100000>,/*console size*/
+			<0x0 0x4000>,/*record size*/
+			<0x0 0x20000>,/*ftrace size*/
+			<0x0 0x40000>;/*pmsg size*/
+	};
 };
 
 #include "msm-pm8937-rpm-regulator.dtsi"

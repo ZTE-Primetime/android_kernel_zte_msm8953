@@ -21,6 +21,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/pm.h>
 #include <linux/mmc/ring_buffer.h>
+#include <linux/wakelock.h>
 
 #define MMC_AUTOSUSPEND_DELAY_MS	3000
 
@@ -468,6 +469,9 @@ struct mmc_host {
 	/* private data */
 	spinlock_t		lock;		/* lock for claim and bus ops */
 
+	struct wake_lock		sd_detect_wake_lock;  /*wake lock for sd detect*/
+
+
 	struct mmc_ios		ios;		/* current io bus settings */
 	struct mmc_ios		cached_ios;
 
@@ -517,6 +521,8 @@ struct mmc_host {
 	struct mmc_supply	supply;
 
 	struct dentry		*debugfs_root;
+
+	bool err_occurred;
 
 	struct mmc_async_req	*areq;		/* active async req */
 	struct mmc_context_info	context_info;	/* async synchronization info */

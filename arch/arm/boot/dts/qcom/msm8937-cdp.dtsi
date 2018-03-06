@@ -84,14 +84,6 @@
 			debounce-interval = <15>;
 		};
 	};
-
-	hbtp {
-		compatible = "qcom,hbtp-input";
-		vcc_dig-supply = <&pm8937_l5>;
-		qcom,dig-load = <15000>;
-		qcom,dig-vtg-min = <1800000>;
-		qcom,dig-vtg-max = <1800000>;
-	};
 };
 
 &tlmm {
@@ -207,7 +199,7 @@
 		status = "okay";
 	};
 };
-
+#if 0
 &spi_3 { /* BLSP1 QUP3 */
 	maxim_sti@0 {
 		status = "disabled";
@@ -230,7 +222,7 @@
 		pinctrl-2 = <&ts_release>;
 	};
 };
-
+#endif
 &i2c_5 { /* BLSP2 QUP1 */
 	nq@28 {
 		compatible = "qcom,nq-nci";

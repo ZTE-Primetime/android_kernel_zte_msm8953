@@ -24,7 +24,21 @@ obj-$(CONFIG_INPUT_TABLET)	+= tablet/
 obj-$(CONFIG_INPUT_TOUCHSCREEN)	+= touchscreen/
 obj-$(CONFIG_INPUT_MISC)	+= misc/
 
+ifeq ($(ZTE_FINGERPRINT_MODE_3208),true)
+obj-$(CONFIG_FINGERPRINT_GOODIX_GF3208)  += fingerprint_gf3208/
+endif
+
+ifeq ($(ZTE_FINGERPRINT_MODE_3228),true)
+obj-$(CONFIG_FINGERPRINT_GOODIX_GF3228)  += fingerprint/goodix/
+endif
+
+ifeq ($(ZTE_FINGERPRINT_MODE_3238),true)
+obj-$(CONFIG_FINGERPRINT_GOODIX_GF3238) += fingerprint/gf3238_driver/
+endif
+
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 obj-$(CONFIG_INPUT_KEYRESET)	+= keyreset.o
 obj-$(CONFIG_INPUT_KEYCOMBO)	+= keycombo.o
 
+#jiangfeng add for SX9500 20150226
+obj-$(CONFIG_ZTE_INPUT_MISC) += ztemisc/

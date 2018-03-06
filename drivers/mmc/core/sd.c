@@ -1120,6 +1120,9 @@ static void mmc_sd_remove(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	wake_unlock(&host->sd_detect_wake_lock);
+#endif
 	mmc_exit_clk_scaling(host);
 	mmc_remove_card(host->card);
 
@@ -1149,7 +1152,17 @@ static void mmc_sd_detect(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
-	mmc_get_card(host->card);
+	/*
+	 * Try to acquire claim host. If failed to get the lock in 2 sec,
+	 * just return; This is to ensure that when this call is invoked
+	 * due to pm_suspend, not to block suspend for longer duration.
+	 */
+	pm_runtime_get_sync(&host->card->dev);
+	if (!mmc_try_claim_host(host, 2000)) {
+		pm_runtime_mark_last_busy(&host->card->dev);
+		pm_runtime_put_autosuspend(&host->card->dev);
+		return;
+	}
 
 	/*
 	 * Just check if our card has been removed.
@@ -1467,6 +1480,9 @@ int mmc_attach_sd(struct mmc_host *host)
 	if (err)
 		goto remove_card;
 
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
+	wake_unlock(&host->sd_detect_wake_lock);
+#endif
 	return 0;
 
 remove_card:

@@ -641,6 +641,10 @@ static struct battery_status batt_s[] = {
 	[BATT_MISSING] = {0, 0, 0, 1, 0},
 };
 
+#define RETRY_COUNT 5
+int retry_sleep[RETRY_COUNT] = {
+	10, 20, 30, 40, 50
+};
 static void smb1351_stay_awake(struct smb1351_wakeup_source *source,
 					enum wakeup_src wk_src)
 {
@@ -675,9 +679,16 @@ static void smb1351_wakeup_src_init(struct smb1351_charger *chip)
 static int smb1351_read_reg(struct smb1351_charger *chip, int reg, u8 *val)
 {
 	s32 ret;
+	int retry_count = 0;
 
 	smb1351_stay_awake(&chip->smb1351_ws, I2C_ACCESS);
+retry:
 	ret = i2c_smbus_read_byte_data(chip->client, reg);
+	if (ret < 0 && retry_count < RETRY_COUNT) {
+		/* sleep for few ms before retrying */
+		msleep(retry_sleep[retry_count++]);
+		goto retry;
+	}
 	if (ret < 0) {
 		pr_err("i2c read fail: can't read from %02x: %d\n", reg, ret);
 		smb1351_relax(&chip->smb1351_ws, I2C_ACCESS);
@@ -693,9 +704,16 @@ static int smb1351_read_reg(struct smb1351_charger *chip, int reg, u8 *val)
 static int smb1351_write_reg(struct smb1351_charger *chip, int reg, u8 val)
 {
 	s32 ret;
+	int retry_count = 0;
 
 	smb1351_stay_awake(&chip->smb1351_ws, I2C_ACCESS);
+retry:
 	ret = i2c_smbus_write_byte_data(chip->client, reg, val);
+	if (ret < 0 && retry_count < RETRY_COUNT) {
+		/* sleep for few ms before retrying */
+		msleep(retry_sleep[retry_count++]);
+		goto retry;
+	}
 	if (ret < 0) {
 		pr_err("i2c write fail: can't write %02x to %02x: %d\n",
 			val, reg, ret);
@@ -1022,7 +1040,7 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		chip->fastchg_current_max_ma = fast_chg_current[i];
 
 		i = i << SMB1351_CHG_FAST_SHIFT;
-		pr_debug("fastchg limit=%d setting %02x\n",
+		pr_info("fastchg limit=%d setting %02x\n",
 					chip->fastchg_current_max_ma, i);
 
 		/* make sure pre chg mode is disabled */
@@ -2545,6 +2563,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 	int rc = 0;
 	struct smb1351_charger *chip = container_of(psy,
 				struct smb1351_charger, parallel_psy);
+	pr_info("prop =%d val->intval=%d\n", prop, val->intval);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
@@ -2552,6 +2571,7 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 		 *CHG EN is controlled by pin in the parallel charging.
 		 *Use suspend if disable charging by command.
 		 */
+		pr_info("[SMB1351] chip->parallel_charger_present=%d\n", chip->parallel_charger_present);
 		if (chip->parallel_charger_present) {
 			rc = smb1351_usb_suspend(chip, USER, !val->intval);
 			if (rc)
